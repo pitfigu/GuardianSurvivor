@@ -2,8 +2,17 @@
 class EnemyManager {
     constructor(scene) {
         this.scene = scene;
-        this.enemies = scene.physics.add.group();
-        this.xpGems = scene.physics.add.group();
+
+        // Create groups with physics
+        this.enemies = scene.physics.add.group({
+            classType: Phaser.Physics.Arcade.Sprite,
+            runChildUpdate: false
+        });
+
+        this.xpGems = scene.physics.add.group({
+            classType: Phaser.Physics.Arcade.Sprite,
+            runChildUpdate: false
+        });
 
         // Spawn rate and difficulty
         this.spawnRate = GAME_SETTINGS.baseEnemySpawnRate;
@@ -11,6 +20,8 @@ class EnemyManager {
 
         // Start spawning enemies
         this.startSpawning();
+
+        console.log("Enemy manager initialized");
     }
 
     startSpawning() {

@@ -28,6 +28,9 @@ class MainScene extends Phaser.Scene {
         // Setup enemy manager
         this.enemyManager = new EnemyManager(this);
 
+        // NOW set up weapon collisions after enemyManager is created
+        this.player.setupWeaponCollisions();
+
         // Setup upgrade manager
         this.upgradeManager = new UpgradeManager(this);
 
@@ -62,47 +65,25 @@ class MainScene extends Phaser.Scene {
         }
     }
 
-    update(time, delta) {
-        if (this.paused) return;
+    // Also update applyUpgrade to call setupWeaponCollisions
+    applyUpgrade(upgrade) {
+        if (!upgrade || typeof upgrade.apply !== 'function') {
+            console.error("Invalid upgrade object:", upgrade);
+            this.paused = false;
+            return;
+        }
 
-        // Update player
-        this.player.update(time, delta);
+        upgrade.apply();
 
-        // Update enemies
-        this.enemyManager.update(time, delta);
+        // Set up collisions for any new weapons
+        this.player.setupWeaponCollisions();
 
-        // Update HUD
-        this.hud.update();
+        this.paused = false;
 
-        // Update debugger
-        if (this.debugger) this.debugger.update();
-    }
-
-    createBackground() {
-        // Create a tiled background
-        this.background = this.add.tileSprite(
-            0, 0,
-            this.game.config.width * 2,
-            this.game.config.height * 2,
-            'bgPattern'
-        );
-        this.background.setOrigin(0.25, 0.25);
-        this.background.setTint(0x222244);
-
-        // Create a grid for visibility during development
-        const grid = this.add.grid(
-            this.game.config.width / 2,
-            this.game.config.height / 2,
-            this.game.config.width,
-            this.game.config.height,
-            64,
-            64,
-            0x000000,
-            0,
-            0x444444,
-            0.2
-        );
-        grid.setDepth(-1);
+        // Check if still have enough XP for another level up
+        if (this.currentXP >= this.xpToNextLevel) {
+            this.levelUp();
+        }
     }
 
     createParticleEmitters() {

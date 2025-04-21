@@ -1,3 +1,4 @@
+// js/objects/Player.js
 class Player {
     constructor(scene, x, y) {
         this.scene = scene;
@@ -12,9 +13,6 @@ class Player {
         this.sprite.setAlpha(1);
         this.sprite.setDepth(10);
 
-        // Add a more visible outline to the player for debugging
-        this.sprite.setTint(0x00ffff);
-
         console.log("Player sprite created:", this.sprite);
 
         // Add shadow beneath player
@@ -28,6 +26,8 @@ class Player {
 
         // Weapons array
         this.weapons = [];
+
+        // Add initial weapon (without setting up collisions yet)
         this.addWeapon(new BasicWeapon(scene, this));
     }
 
@@ -35,15 +35,10 @@ class Player {
         this.handleMovement();
         this.updateWeapons(time, delta);
 
-        // Update shadow and glow positions
+        // Update shadow position
         if (this.shadow) {
             this.shadow.x = this.sprite.x;
-            this.shadow.y = this.sprite.y + 22;
-        }
-
-        if (this.glow) {
-            this.glow.x = this.sprite.x;
-            this.glow.y = this.sprite.y;
+            this.shadow.y = this.sprite.y + 10;
         }
     }
 
@@ -56,43 +51,36 @@ class Player {
         this.sprite.setVelocity(0);
 
         // Horizontal movement
-        if (cursors.left.isDown || wasd.left.isDown) {
+        if ((cursors && cursors.left.isDown) || (wasd && wasd.left.isDown)) {
             this.sprite.setVelocityX(-this.speed);
-        } else if (cursors.right.isDown || wasd.right.isDown) {
+        } else if ((cursors && cursors.right.isDown) || (wasd && wasd.right.isDown)) {
             this.sprite.setVelocityX(this.speed);
         }
 
         // Vertical movement
-        if (cursors.up.isDown || wasd.up.isDown) {
+        if ((cursors && cursors.up.isDown) || (wasd && wasd.up.isDown)) {
             this.sprite.setVelocityY(-this.speed);
-        } else if (cursors.down.isDown || wasd.down.isDown) {
+        } else if ((cursors && cursors.down.isDown) || (wasd && wasd.down.isDown)) {
             this.sprite.setVelocityY(this.speed);
         }
 
         // Normalize diagonal movement
-        this.sprite.body.velocity.normalize().scale(this.speed);
+        if (this.sprite.body.velocity.x !== 0 || this.sprite.body.velocity.y !== 0) {
+            this.sprite.body.velocity.normalize().scale(this.speed);
+        }
     }
 
     updateWeapons(time, delta) {
         this.weapons.forEach(weapon => {
-            weapon.update(time, delta);
+            if (weapon && typeof weapon.update === 'function') {
+                weapon.update(time, delta);
+            }
         });
     }
 
     addWeapon(weapon) {
         this.weapons.push(weapon);
-
-        // Make sure collisions are set up in the main scene
-        if (this.scene && weapon.projectiles) {
-            this.scene.physics.add.overlap(
-                weapon.projectiles,
-                this.scene.enemyManager.enemies,
-                this.scene.handleWeaponEnemyCollision,
-                null,
-                this.scene
-            );
-            weapon.collisionsSetup = true;
-        }
+        // We'll set up collisions later in MainScene.setupCollisions()
     }
 
     takeDamage(amount) {
@@ -106,10 +94,6 @@ class Player {
             duration: 100,
             yoyo: true
         });
-
-        if (this.health <= 0) {
-            // Player death logic handled in MainScene
-        }
     }
 
     heal(amount) {
@@ -124,5 +108,27 @@ class Player {
     upgradeMaxHealth(amount) {
         this.maxHealth += amount;
         this.health += amount; // Also heal when max health increases
+    }
+
+    // Method to set up collision detection for all weapons
+    setupWeaponCollisions() {
+        // Only proceed if enemyManager exists
+        if (!this.scene.enemyManager || !this.scene.enemyManager.enemies) {
+            console.warn("Cannot set up weapon collisions - enemyManager not available");
+            return;
+        }
+
+        this.weapons.forEach(weapon => {
+            if (weapon && weapon.projectiles) {
+                this.scene.physics.add.overlap(
+                    weapon.projectiles,
+                    this.scene.enemyManager.enemies,
+                    this.scene.handleWeaponEnemyCollision,
+                    null,
+                    this.scene
+                );
+                weapon.collisionsSetup = true;
+            }
+        });
     }
 }
