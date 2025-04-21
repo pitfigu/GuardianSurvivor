@@ -1,0 +1,19 @@
+body {
+    margin: 0;
+    padding: 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    background-color: #222;
+    font-family: Arial, sans-serif;
+}
+
+#game-container {
+    position: relative;
+}
+
+canvas {
+    display: block;
+    margin: 0 auto;
+}
