@@ -14,8 +14,28 @@ class MainScene extends Phaser.Scene {
     }
 
     create() {
-        // Create background
-        this.createBackground();
+        // Create a simple background color instead of using createBackground
+        this.add.rectangle(
+            this.game.config.width / 2,
+            this.game.config.height / 2,
+            this.game.config.width,
+            this.game.config.height,
+            0x222244
+        ).setDepth(-10);
+
+        // Create a grid for visual reference
+        const grid = this.add.grid(
+            this.game.config.width / 2,
+            this.game.config.height / 2,
+            this.game.config.width,
+            this.game.config.height,
+            64,
+            64,
+            0x000000,
+            0,
+            0x444444,
+            0.2
+        ).setDepth(-5);
 
         // Create player
         this.player = new Player(this,
@@ -29,7 +49,9 @@ class MainScene extends Phaser.Scene {
         this.enemyManager = new EnemyManager(this);
 
         // NOW set up weapon collisions after enemyManager is created
-        this.player.setupWeaponCollisions();
+        if (this.player && typeof this.player.setupWeaponCollisions === 'function') {
+            this.player.setupWeaponCollisions();
+        }
 
         // Setup upgrade manager
         this.upgradeManager = new UpgradeManager(this);
@@ -65,24 +87,25 @@ class MainScene extends Phaser.Scene {
         }
     }
 
-    // Also update applyUpgrade to call setupWeaponCollisions
-    applyUpgrade(upgrade) {
-        if (!upgrade || typeof upgrade.apply !== 'function') {
-            console.error("Invalid upgrade object:", upgrade);
-            this.paused = false;
-            return;
-        }
+    update(time, delta) {
+        if (this.paused) return;
 
-        upgrade.apply();
+        // Update player
+        if (this.player) this.player.update(time, delta);
 
-        // Set up collisions for any new weapons
-        this.player.setupWeaponCollisions();
+        // Update enemies
+        if (this.enemyManager) this.enemyManager.update(time, delta);
 
-        this.paused = false;
+        // Update HUD
+        if (this.hud) this.hud.update();
 
-        // Check if still have enough XP for another level up
-        if (this.currentXP >= this.xpToNextLevel) {
-            this.levelUp();
+        // Update debugger
+        if (this.debugger) this.debugger.update();
+
+        // Slowly animate the background grid
+        if (this.background) {
+            this.background.tilePositionX += 0.1;
+            this.background.tilePositionY += 0.1;
         }
     }
 
@@ -120,11 +143,13 @@ class MainScene extends Phaser.Scene {
 
         // Increase difficulty over time
         if (this.gameTime % 30 === 0) { // Every 30 seconds
-            this.enemyManager.increaseDifficulty();
+            if (this.enemyManager) this.enemyManager.increaseDifficulty();
         }
     }
 
     setupCollisions() {
+        if (!this.player || !this.enemyManager) return;
+
         // Player and enemies
         this.physics.add.overlap(
             this.player.sprite,
@@ -143,9 +168,9 @@ class MainScene extends Phaser.Scene {
             this
         );
 
-        // Weapon projectiles and enemies - KEY FIX HERE
+        // Weapon projectiles and enemies
         this.player.weapons.forEach(weapon => {
-            if (weapon.projectiles) {
+            if (weapon && weapon.projectiles) {
                 this.physics.add.overlap(
                     weapon.projectiles,
                     this.enemyManager.enemies,
@@ -153,6 +178,7 @@ class MainScene extends Phaser.Scene {
                     null,
                     this
                 );
+                weapon.collisionsSetup = true;
             }
         });
     }
@@ -294,21 +320,6 @@ class MainScene extends Phaser.Scene {
         }
 
         upgrade.apply();
-
-        // Set up collisions for any new weapons
-        this.player.weapons.forEach(weapon => {
-            if (weapon.projectiles && !weapon.collisionsSetup) {
-                this.physics.add.overlap(
-                    weapon.projectiles,
-                    this.enemyManager.enemies,
-                    this.handleWeaponEnemyCollision,
-                    null,
-                    this
-                );
-                weapon.collisionsSetup = true;
-            }
-        });
-
         this.paused = false;
 
         // Check if still have enough XP for another level up
