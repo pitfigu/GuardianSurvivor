@@ -99,15 +99,13 @@ class Enemy {
         this.health -= amount;
 
         // Visual feedback
-        this.scene.tweens.add({
-            targets: this.sprite,
-            alpha: 0.5,
-            duration: 50,
-            yoyo: true
-        });
-
-        if (this.health <= 0) {
-            // Death is handled in collision logic in MainScene
+        if (this.sprite && this.sprite.active) {
+            this.scene.tweens.add({
+                targets: this.sprite,
+                alpha: 0.5,
+                duration: 50,
+                yoyo: true
+            });
         }
     }
 
@@ -129,7 +127,7 @@ class Enemy {
     }
 
     destroy() {
-        if (this.shadow) this.shadow.destroy();
-        this.sprite.destroy();
+        if (this.shadow && this.shadow.active) this.shadow.destroy();
+        if (this.sprite && this.sprite.active) this.sprite.destroy();
     }
 }

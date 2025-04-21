@@ -47,9 +47,9 @@ class BasicWeapon extends Weapon {
     }
 
     fireAtEnemy(enemy) {
-        // Play sound if available
+        // Try to play sound, but don't require it
         if (this.scene.sound && this.scene.cache.audio.exists('shoot')) {
-            this.scene.sound.play('shoot', { volume: 0.2 });
+            this.scene.sound.play('shoot', { volume: 0.2, rate: 1.2 });
         }
 
         // Create projectile
@@ -82,34 +82,11 @@ class BasicWeapon extends Weapon {
         // Rotate projectile to face direction
         projectile.rotation = Math.atan2(direction.y, direction.x);
 
-        // Add glow effect that follows the projectile
-        const glowSprite = this.scene.add.sprite(
-            projectile.x,
-            projectile.y,
-            'projectile'
-        );
-        glowSprite.setScale(1.6);
-        glowSprite.setAlpha(0.4);
-        glowSprite.setBlendMode(Phaser.BlendModes.ADD);
-        glowSprite.rotation = projectile.rotation;
-
-        // Make the glow follow the projectile
-        projectile.setData('glowEffect', glowSprite);
-
-        // Update event to keep the glow aligned with projectile
-        this.scene.events.on('update', () => {
-            if (projectile.active && glowSprite.active) {
-                glowSprite.x = projectile.x;
-                glowSprite.y = projectile.y;
-            }
-        });
-
         // Destroy after time
         this.scene.time.addEvent({
             delay: 1000,
             callback: () => {
                 if (projectile.active) projectile.destroy();
-                if (glowSprite.active) glowSprite.destroy();
             }
         });
     }

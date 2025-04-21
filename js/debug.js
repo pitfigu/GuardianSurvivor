@@ -10,6 +10,26 @@ class GameDebugger {
     initialize() {
         if (!this.isEnabled) return;
 
+        // Add a visual marker at the game center
+        const centerMarker = this.scene.add.circle(
+            this.scene.game.config.width / 2,
+            this.scene.game.config.height / 2,
+            10, 0xff0000, 0.8
+        );
+        centerMarker.setScrollFactor(0);
+        centerMarker.setDepth(1000);
+
+        // Add key info about game objects
+        this.logSceneInfo();
+    }
+
+    logSceneInfo() {
+        // Count active game objects
+        this.debugInfo.activeGameObjects = this.scene.children.list.length;
+        this.debugInfo.spriteCount = this.scene.children.list.filter(
+            child => child instanceof Phaser.GameObjects.Sprite
+        ).length;
+
         // Create background for debug panel
         this.debugPanel = this.scene.add.rectangle(
             10, 10, 300, 400, 0x000000, 0.7

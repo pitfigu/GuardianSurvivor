@@ -7,10 +7,13 @@ class Player {
         this.sprite.setCollideWorldBounds(true);
         this.sprite.setData('ref', this);
 
-        // Explicitly set visibility and depth
-        this.sprite.setVisible(true);  // Make sure sprite is visible
-        this.sprite.setAlpha(1);       // Make sure sprite is fully opaque
-        this.sprite.setDepth(10);      // Set a reasonable depth
+        // Make sure player is visible
+        this.sprite.setVisible(true);
+        this.sprite.setAlpha(1);
+        this.sprite.setDepth(10);
+
+        // Add a more visible outline to the player for debugging
+        this.sprite.setTint(0x00ffff);
 
         console.log("Player sprite created:", this.sprite);
 

@@ -1,3 +1,4 @@
+// js/scenes/MainScene.js
 class MainScene extends Phaser.Scene {
     constructor() {
         super({ key: 'MainScene' });
@@ -13,33 +14,10 @@ class MainScene extends Phaser.Scene {
     }
 
     create() {
-        // Create a bright background so we can see what's happening
-        const bg = this.add.rectangle(
-            this.game.config.width / 2,
-            this.game.config.height / 2,
-            this.game.config.width,
-            this.game.config.height,
-            0x333366
-        );
+        // Create background
+        this.createBackground();
 
-        // Create a grid for visual reference
-        const grid = this.add.grid(
-            this.game.config.width / 2,
-            this.game.config.height / 2,
-            this.game.config.width,
-            this.game.config.height,
-            64,
-            64,
-            0x000000,
-            0,
-            0x444444,
-            0.2
-        );
-
-        // Initialize debugger
-        this.debugger = new GameDebugger(this);
-
-        // Create player - make sure it's at the center of the screen
+        // Create player
         this.player = new Player(this,
             this.game.config.width / 2,
             this.game.config.height / 2
@@ -56,12 +34,11 @@ class MainScene extends Phaser.Scene {
         // Create HUD
         this.hud = new HUD(this);
 
-        // Create tiled background
-        this.background = this.add.tileSprite(0, 0, this.game.config.width * 2, this.game.config.height * 2, 'bgPattern');
-        this.background.setOrigin(0.25, 0.25);
-
         // Create level up UI
         this.levelUpUI = new LevelUpUI(this);
+
+        // Create particle emitters
+        this.createParticleEmitters();
 
         // Game timer
         this.gameTimer = this.time.addEvent({
@@ -77,9 +54,12 @@ class MainScene extends Phaser.Scene {
         // Input handlers
         this.setupInputHandlers();
 
-        // Initialize debugger after everything is set up
-        this.debugger.initialize();
-        this.debugger.highlightPlayer();
+        // Initialize debugger if available
+        if (typeof GameDebugger !== 'undefined') {
+            this.debugger = new GameDebugger(this);
+            this.debugger.initialize();
+            this.debugger.highlightPlayer();
+        }
     }
 
     update(time, delta) {
@@ -98,6 +78,62 @@ class MainScene extends Phaser.Scene {
         if (this.debugger) this.debugger.update();
     }
 
+    createBackground() {
+        // Create a tiled background
+        this.background = this.add.tileSprite(
+            0, 0,
+            this.game.config.width * 2,
+            this.game.config.height * 2,
+            'bgPattern'
+        );
+        this.background.setOrigin(0.25, 0.25);
+        this.background.setTint(0x222244);
+
+        // Create a grid for visibility during development
+        const grid = this.add.grid(
+            this.game.config.width / 2,
+            this.game.config.height / 2,
+            this.game.config.width,
+            this.game.config.height,
+            64,
+            64,
+            0x000000,
+            0,
+            0x444444,
+            0.2
+        );
+        grid.setDepth(-1);
+    }
+
+    createParticleEmitters() {
+        try {
+            // Enemy death particles
+            this.enemyDeathEmitter = this.add.particles(0, 0, 'enemy', {
+                speed: { min: 50, max: 150 },
+                angle: { min: 0, max: 360 },
+                scale: { start: 0.4, end: 0.0 },
+                lifespan: { min: 400, max: 600 },
+                blendMode: 'ADD',
+                frequency: -1 // Manually emitted
+            });
+
+            // XP collection particles
+            this.xpCollectEmitter = this.add.particles(0, 0, 'xp', {
+                speed: { min: 30, max: 80 },
+                angle: { min: 0, max: 360 },
+                scale: { start: 0.6, end: 0.0 },
+                lifespan: { min: 300, max: 500 },
+                blendMode: 'ADD',
+                frequency: -1 // Manually emitted
+            });
+        } catch (error) {
+            console.warn("Error creating particle emitters:", error);
+            // Create dummy emitters that do nothing to avoid errors
+            this.enemyDeathEmitter = { setPosition: () => { }, explode: () => { } };
+            this.xpCollectEmitter = { setPosition: () => { }, explode: () => { } };
+        }
+    }
+
     updateGameTime() {
         this.gameTime++;
 
@@ -105,28 +141,6 @@ class MainScene extends Phaser.Scene {
         if (this.gameTime % 30 === 0) { // Every 30 seconds
             this.enemyManager.increaseDifficulty();
         }
-    }
-
-    createParticleEmitters() {
-        // Enemy death particles
-        this.enemyDeathEmitter = this.add.particles(0, 0, 'enemy', {
-            speed: { min: 50, max: 150 },
-            angle: { min: 0, max: 360 },
-            scale: { start: 0.4, end: 0.0 },
-            lifespan: { min: 400, max: 600 },
-            blendMode: 'ADD',
-            frequency: -1 // Manually emitted
-        });
-
-        // XP collection particles
-        this.xpCollectEmitter = this.add.particles(0, 0, 'xp', {
-            speed: { min: 30, max: 80 },
-            angle: { min: 0, max: 360 },
-            scale: { start: 0.6, end: 0.0 },
-            lifespan: { min: 300, max: 500 },
-            blendMode: 'ADD',
-            frequency: -1 // Manually emitted
-        });
     }
 
     setupCollisions() {
@@ -147,19 +161,6 @@ class MainScene extends Phaser.Scene {
             null,
             this
         );
-
-        // Player's weapons and enemies
-        this.player.weapons.forEach(weapon => {
-            if (weapon.projectiles) {
-                this.physics.add.overlap(
-                    weapon.projectiles,
-                    this.enemyManager.enemies,
-                    this.handleWeaponEnemyCollision,
-                    null,
-                    this
-                );
-            }
-        });
     }
 
     setupInputHandlers() {
@@ -174,7 +175,14 @@ class MainScene extends Phaser.Scene {
 
     handlePlayerEnemyCollision(playerSprite, enemySprite) {
         const enemy = enemySprite.getData('ref');
+        if (!enemy) return; // Safety check
+
         this.player.takeDamage(enemy.damage);
+
+        // Sound effect 
+        if (this.sound && this.cache.audio.exists('playerHurt')) {
+            this.sound.play('playerHurt', { volume: 0.4 });
+        }
 
         if (this.player.health <= 0) {
             this.gameOver();
@@ -182,24 +190,35 @@ class MainScene extends Phaser.Scene {
     }
 
     handleWeaponEnemyCollision(projectile, enemySprite) {
+        if (!projectile || !enemySprite) return; // Safety check
+
         const enemy = enemySprite.getData('ref');
+        if (!enemy) return; // Another safety check
+
         const damage = projectile.getData('damage') || 10;
 
-        // Sound effect and small hit flash
-        this.sound.play('hit', { volume: 0.3 });
+        // Sound effect for hit
+        if (this.sound && this.cache.audio.exists('hit')) {
+            this.sound.play('hit', { volume: 0.3 });
+        }
 
         enemy.takeDamage(damage);
+
         if (projectile.getData('destroyOnHit') !== false) {
             projectile.destroy();
         }
 
         if (enemy.health <= 0) {
-            // Play death sound
-            this.sound.play('enemyDeath', { volume: 0.4 });
+            // Sound effect for enemy death
+            if (this.sound && this.cache.audio.exists('enemyDeath')) {
+                this.sound.play('enemyDeath', { volume: 0.4 });
+            }
 
-            // Emit particle effect
-            this.enemyDeathEmitter.setPosition(enemySprite.x, enemySprite.y);
-            this.enemyDeathEmitter.explode(12);
+            // Visual effect for enemy death (safely)
+            if (this.enemyDeathEmitter && typeof this.enemyDeathEmitter.setPosition === 'function') {
+                this.enemyDeathEmitter.setPosition(enemySprite.x, enemySprite.y);
+                this.enemyDeathEmitter.explode(12);
+            }
 
             this.score += enemy.points;
             enemy.dropXP();
@@ -208,14 +227,20 @@ class MainScene extends Phaser.Scene {
     }
 
     collectXP(playerSprite, xpGem) {
+        if (!xpGem) return; // Safety check
+
         const xpValue = xpGem.getData('xpValue') || 1;
 
         // Sound effect
-        this.sound.play('pickup', { volume: 0.2 });
+        if (this.sound && this.cache.audio.exists('pickup')) {
+            this.sound.play('pickup', { volume: 0.2 });
+        }
 
-        // Particle effect
-        this.xpCollectEmitter.setPosition(xpGem.x, xpGem.y);
-        this.xpCollectEmitter.explode(5);
+        // Visual effect for XP collection
+        if (this.xpCollectEmitter && typeof this.xpCollectEmitter.setPosition === 'function') {
+            this.xpCollectEmitter.setPosition(xpGem.x, xpGem.y);
+            this.xpCollectEmitter.explode(5);
+        }
 
         this.currentXP += xpValue;
         xpGem.destroy();
@@ -232,7 +257,9 @@ class MainScene extends Phaser.Scene {
         this.xpToNextLevel = Math.floor(this.xpToNextLevel * GAME_SETTINGS.xpScaling);
 
         // Play level up sound
-        this.sound.play('levelUp', { volume: 0.7 });
+        if (this.sound && this.cache.audio.exists('levelUp')) {
+            this.sound.play('levelUp', { volume: 0.7 });
+        }
 
         // Create a flash effect
         const flash = this.add.rectangle(0, 0,
@@ -240,6 +267,7 @@ class MainScene extends Phaser.Scene {
             0xffffff, 0.7);
         flash.setOrigin(0);
         flash.setDepth(100);
+        flash.setScrollFactor(0);
 
         this.tweens.add({
             targets: flash,
@@ -256,7 +284,13 @@ class MainScene extends Phaser.Scene {
     }
 
     applyUpgrade(upgrade) {
-        this.upgradeManager.applyUpgrade(upgrade);
+        if (!upgrade || typeof upgrade.apply !== 'function') {
+            console.error("Invalid upgrade object:", upgrade);
+            this.paused = false;
+            return;
+        }
+
+        upgrade.apply();
         this.paused = false;
 
         // Check if still have enough XP for another level up
