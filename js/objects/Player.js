@@ -7,6 +7,9 @@ class Player {
         this.sprite.setCollideWorldBounds(true);
         this.sprite.setData('ref', this);
 
+        this.sprite.body.setSize(24, 24);  // Slightly smaller than the sprite
+        this.sprite.body.setOffset(4, 4);  // Center the hitbox
+
         // Add shadow beneath player
         this.shadow = scene.add.ellipse(x, y + 22, 36, 12, 0x000000, 0.3);
 

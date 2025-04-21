@@ -11,6 +11,18 @@ class Enemy {
         this.sprite = scene.physics.add.sprite(x, y, texture);
         this.sprite.setData('ref', this);
 
+        if (this.type === 'tank') {
+            this.sprite.body.setSize(28, 28);
+            this.sprite.body.setOffset(2, 2);
+        } else if (this.type === 'fast') {
+            this.sprite.body.setSize(22, 22);
+            this.sprite.body.setOffset(5, 5);
+        } else {
+            // Basic enemy
+            this.sprite.body.setSize(24, 24);
+            this.sprite.body.setOffset(4, 4);
+        }
+
         // Add shadow beneath enemy
         this.shadow = scene.add.ellipse(x, y + 20, 30, 10, 0x000000, 0.3);
 
@@ -105,6 +117,10 @@ class Enemy {
             this.sprite.y,
             'xp'
         );
+
+        // Set smaller hitbox for XP gem
+        xp.body.setSize(8, 8);
+        xp.body.setOffset(4, 4);
 
         xp.setData('xpValue', this.xpValue);
 

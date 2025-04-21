@@ -47,7 +47,10 @@ class BasicWeapon extends Weapon {
             'projectile'
         );
 
-        projectile.setScale(1.2);
+        // Set a small but accurate hitbox
+        projectile.body.setSize(8, 2);
+        projectile.body.setOffset(0, 1);
+
         projectile.setData('damage', this.damage);
         projectile.setData('destroyOnHit', true);
 
