@@ -27,6 +27,13 @@ const GAME_SETTINGS = {
     xpScaling: 1.5 // XP needed multiplier per level
 };
 
+function playSound(scene, key, config = {}) {
+    // Only play the sound if it exists in the cache
+    if (scene.sound && scene.cache.audio.exists(key)) {
+        scene.sound.play(key, config);
+    }
+}
+
 // Global game state
 const GAME_STATE = {
     highScore: localStorage.getItem('highScore') || 0

@@ -2,22 +2,21 @@ class Player {
     constructor(scene, x, y) {
         this.scene = scene;
 
-        // Create player sprite with improved visuals
+        // Create player sprite
         this.sprite = scene.physics.add.sprite(x, y, 'player');
         this.sprite.setCollideWorldBounds(true);
         this.sprite.setData('ref', this);
 
-        this.sprite.body.setSize(24, 24);  // Slightly smaller than the sprite
-        this.sprite.body.setOffset(4, 4);  // Center the hitbox
+        // Explicitly set visibility and depth
+        this.sprite.setVisible(true);  // Make sure sprite is visible
+        this.sprite.setAlpha(1);       // Make sure sprite is fully opaque
+        this.sprite.setDepth(10);      // Set a reasonable depth
+
+        console.log("Player sprite created:", this.sprite);
 
         // Add shadow beneath player
-        this.shadow = scene.add.ellipse(x, y + 22, 36, 12, 0x000000, 0.3);
-
-        // Add glow effect
-        this.glow = scene.add.sprite(x, y, 'player');
-        this.glow.setAlpha(0.5);
-        this.glow.setScale(1.2);
-        this.glow.setBlendMode(Phaser.BlendModes.ADD);
+        this.shadow = scene.add.ellipse(x, y + 10, 24, 8, 0x000000, 0.5);
+        this.shadow.setDepth(9);
 
         // Player stats
         this.health = GAME_SETTINGS.playerHealth;
@@ -27,18 +26,6 @@ class Player {
         // Weapons array
         this.weapons = [];
         this.addWeapon(new BasicWeapon(scene, this));
-
-        // Add pulsating effect to the glow
-        scene.tweens.add({
-            targets: this.glow,
-            alpha: 0.7,
-            scaleX: 1.3,
-            scaleY: 1.3,
-            yoyo: true,
-            repeat: -1,
-            ease: 'Sine.easeInOut',
-            duration: 1500
-        });
     }
 
     update(time, delta) {

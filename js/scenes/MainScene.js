@@ -13,8 +13,39 @@ class MainScene extends Phaser.Scene {
     }
 
     create() {
-        // Create player
-        this.player = new Player(this, 400, 300);
+        // Create a bright background so we can see what's happening
+        const bg = this.add.rectangle(
+            this.game.config.width / 2,
+            this.game.config.height / 2,
+            this.game.config.width,
+            this.game.config.height,
+            0x333366
+        );
+
+        // Create a grid for visual reference
+        const grid = this.add.grid(
+            this.game.config.width / 2,
+            this.game.config.height / 2,
+            this.game.config.width,
+            this.game.config.height,
+            64,
+            64,
+            0x000000,
+            0,
+            0x444444,
+            0.2
+        );
+
+        // Initialize debugger
+        this.debugger = new GameDebugger(this);
+
+        // Create player - make sure it's at the center of the screen
+        this.player = new Player(this,
+            this.game.config.width / 2,
+            this.game.config.height / 2
+        );
+
+        console.log("Player created at:", this.player.sprite.x, this.player.sprite.y);
 
         // Setup enemy manager
         this.enemyManager = new EnemyManager(this);
@@ -45,6 +76,10 @@ class MainScene extends Phaser.Scene {
 
         // Input handlers
         this.setupInputHandlers();
+
+        // Initialize debugger after everything is set up
+        this.debugger.initialize();
+        this.debugger.highlightPlayer();
     }
 
     update(time, delta) {
@@ -56,13 +91,11 @@ class MainScene extends Phaser.Scene {
         // Update enemies
         this.enemyManager.update(time, delta);
 
-        this.background.tilePositionX += 0.1;
-        this.background.tilePositionY += 0.1;
-
         // Update HUD
         this.hud.update();
 
-        this.createParticleEmitters();
+        // Update debugger
+        if (this.debugger) this.debugger.update();
     }
 
     updateGameTime() {

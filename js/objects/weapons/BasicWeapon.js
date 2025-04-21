@@ -1,3 +1,4 @@
+// js/objects/weapons/BasicWeapon.js
 class BasicWeapon extends Weapon {
     constructor(scene, player) {
         super(scene, player);
@@ -8,6 +9,15 @@ class BasicWeapon extends Weapon {
 
         // Create group for projectiles
         this.projectiles = scene.physics.add.group();
+
+        // Setup collision with enemies
+        scene.physics.add.overlap(
+            this.projectiles,
+            scene.enemyManager ? scene.enemyManager.enemies : null,
+            scene.handleWeaponEnemyCollision,
+            null,
+            scene
+        );
     }
 
     fire(time) {
@@ -37,8 +47,10 @@ class BasicWeapon extends Weapon {
     }
 
     fireAtEnemy(enemy) {
-        // Sound effect
-        this.scene.sound.play('shoot', { volume: 0.2, rate: 1.2 });
+        // Play sound if available
+        if (this.scene.sound && this.scene.cache.audio.exists('shoot')) {
+            this.scene.sound.play('shoot', { volume: 0.2 });
+        }
 
         // Create projectile
         const projectile = this.scene.physics.add.sprite(
@@ -47,26 +59,12 @@ class BasicWeapon extends Weapon {
             'projectile'
         );
 
-        // Set a small but accurate hitbox
-        projectile.body.setSize(8, 2);
-        projectile.body.setOffset(0, 1);
-
+        projectile.setScale(1.2);
         projectile.setData('damage', this.damage);
         projectile.setData('destroyOnHit', true);
 
-        // Add glow effect to projectile
-        const glow = this.scene.add.sprite(
-            this.player.sprite.x,
-            this.player.sprite.y,
-            'projectile'
-        );
-        glow.setScale(1.6);
-        glow.setAlpha(0.4);
-        glow.setBlendMode(Phaser.BlendModes.ADD);
-
         // Add to projectiles group
         this.projectiles.add(projectile);
-        this.projectiles.add(glow);
 
         // Calculate direction
         const direction = new Phaser.Math.Vector2(
@@ -80,21 +78,38 @@ class BasicWeapon extends Weapon {
             direction.x * speed,
             direction.y * speed
         );
-        glow.setVelocity(
-            direction.x * speed,
-            direction.y * speed
-        );
 
-        // Rotate projectiles to face direction
+        // Rotate projectile to face direction
         projectile.rotation = Math.atan2(direction.y, direction.x);
-        glow.rotation = projectile.rotation;
+
+        // Add glow effect that follows the projectile
+        const glowSprite = this.scene.add.sprite(
+            projectile.x,
+            projectile.y,
+            'projectile'
+        );
+        glowSprite.setScale(1.6);
+        glowSprite.setAlpha(0.4);
+        glowSprite.setBlendMode(Phaser.BlendModes.ADD);
+        glowSprite.rotation = projectile.rotation;
+
+        // Make the glow follow the projectile
+        projectile.setData('glowEffect', glowSprite);
+
+        // Update event to keep the glow aligned with projectile
+        this.scene.events.on('update', () => {
+            if (projectile.active && glowSprite.active) {
+                glowSprite.x = projectile.x;
+                glowSprite.y = projectile.y;
+            }
+        });
 
         // Destroy after time
         this.scene.time.addEvent({
             delay: 1000,
             callback: () => {
                 if (projectile.active) projectile.destroy();
-                if (glow.active) glow.destroy();
+                if (glowSprite.active) glowSprite.destroy();
             }
         });
     }
@@ -115,7 +130,8 @@ class BasicWeapon extends Weapon {
                 break;
             case 5:
                 // Multi-shot at level 5
-                this.multiShot = true;
+                this.damage += 5;
+                this.cooldown *= 0.8;
                 break;
         }
     }
