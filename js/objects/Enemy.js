@@ -96,17 +96,56 @@ class Enemy {
     }
 
     takeDamage(amount) {
+        // Make sure health is a number
+        if (typeof this.health !== 'number') {
+            this.health = 30; // Default health if not set
+        }
+
         this.health -= amount;
 
-        // Visual feedback
+        // Add a visual flash effect
         if (this.sprite && this.sprite.active) {
+            // Flash white
+            this.sprite.setTint(0xffffff);
+
+            // Reset after a short delay
+            this.scene.time.delayedCall(100, () => {
+                if (this.sprite && this.sprite.active) {
+                    // Reset tint based on enemy type
+                    if (this.type === 'fast') {
+                        this.sprite.setTint(0x00ccff);
+                    } else if (this.type === 'tank') {
+                        this.sprite.setTint(0xdd0000);
+                    } else {
+                        this.sprite.clearTint();
+                    }
+                }
+            });
+
+            // Visual damage number
+            const damageText = this.scene.add.text(
+                this.sprite.x,
+                this.sprite.y - 20,
+                `-${amount}`,
+                {
+                    fontSize: '16px',
+                    color: '#ff0000',
+                    stroke: '#000000',
+                    strokeThickness: 3
+                }
+            );
+            damageText.setOrigin(0.5);
+
             this.scene.tweens.add({
-                targets: this.sprite,
-                alpha: 0.5,
-                duration: 50,
-                yoyo: true
+                targets: damageText,
+                y: damageText.y - 30,
+                alpha: 0,
+                duration: 800,
+                onComplete: () => damageText.destroy()
             });
         }
+
+        console.log(`Enemy took ${amount} damage. Health: ${this.health}`);
     }
 
     dropXP() {

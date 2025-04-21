@@ -81,6 +81,18 @@ class Player {
 
     addWeapon(weapon) {
         this.weapons.push(weapon);
+
+        // Make sure collisions are set up in the main scene
+        if (this.scene && weapon.projectiles) {
+            this.scene.physics.add.overlap(
+                weapon.projectiles,
+                this.scene.enemyManager.enemies,
+                this.scene.handleWeaponEnemyCollision,
+                null,
+                this.scene
+            );
+            weapon.collisionsSetup = true;
+        }
     }
 
     takeDamage(amount) {

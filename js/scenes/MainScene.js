@@ -161,6 +161,19 @@ class MainScene extends Phaser.Scene {
             null,
             this
         );
+
+        // Weapon projectiles and enemies - KEY FIX HERE
+        this.player.weapons.forEach(weapon => {
+            if (weapon.projectiles) {
+                this.physics.add.overlap(
+                    weapon.projectiles,
+                    this.enemyManager.enemies,
+                    this.handleWeaponEnemyCollision,
+                    null,
+                    this
+                );
+            }
+        });
     }
 
     setupInputHandlers() {
@@ -190,12 +203,19 @@ class MainScene extends Phaser.Scene {
     }
 
     handleWeaponEnemyCollision(projectile, enemySprite) {
-        if (!projectile || !enemySprite) return; // Safety check
+        if (!projectile || !enemySprite) {
+            console.log("Missing projectile or enemy in collision");
+            return;
+        }
 
         const enemy = enemySprite.getData('ref');
-        if (!enemy) return; // Another safety check
+        if (!enemy) {
+            console.log("Enemy reference missing in collision");
+            return;
+        }
 
         const damage = projectile.getData('damage') || 10;
+        console.log(`Projectile hit enemy! Damage: ${damage}`);
 
         // Sound effect for hit
         if (this.sound && this.cache.audio.exists('hit')) {
@@ -209,6 +229,8 @@ class MainScene extends Phaser.Scene {
         }
 
         if (enemy.health <= 0) {
+            console.log("Enemy defeated!");
+
             // Sound effect for enemy death
             if (this.sound && this.cache.audio.exists('enemyDeath')) {
                 this.sound.play('enemyDeath', { volume: 0.4 });
@@ -291,6 +313,21 @@ class MainScene extends Phaser.Scene {
         }
 
         upgrade.apply();
+
+        // Set up collisions for any new weapons
+        this.player.weapons.forEach(weapon => {
+            if (weapon.projectiles && !weapon.collisionsSetup) {
+                this.physics.add.overlap(
+                    weapon.projectiles,
+                    this.enemyManager.enemies,
+                    this.handleWeaponEnemyCollision,
+                    null,
+                    this
+                );
+                weapon.collisionsSetup = true;
+            }
+        });
+
         this.paused = false;
 
         // Check if still have enough XP for another level up

@@ -6,18 +6,30 @@ class BasicWeapon extends Weapon {
         this.damage = 15;
         this.cooldown = 800;
         this.range = 100;
+        this.level = 1;
+        this.collisionsSetup = false;
 
         // Create group for projectiles
         this.projectiles = scene.physics.add.group();
+    }
 
-        // Setup collision with enemies
-        scene.physics.add.overlap(
-            this.projectiles,
-            scene.enemyManager ? scene.enemyManager.enemies : null,
-            scene.handleWeaponEnemyCollision,
-            null,
-            scene
-        );
+    update(time, delta) {
+        if (time > this.lastFired + this.cooldown) {
+            this.fire(time);
+            this.lastFired = time;
+        }
+
+        // Remove projectiles that have gone too far off-screen
+        const projectiles = this.projectiles.getChildren();
+        for (let i = 0; i < projectiles.length; i++) {
+            const p = projectiles[i];
+            if (p.active) {
+                if (p.x < -50 || p.x > this.scene.game.config.width + 50 ||
+                    p.y < -50 || p.y > this.scene.game.config.height + 50) {
+                    p.destroy();
+                }
+            }
+        }
     }
 
     fire(time) {
@@ -28,6 +40,8 @@ class BasicWeapon extends Weapon {
 
         for (const enemySprite of enemies) {
             const enemy = enemySprite.getData('ref');
+            if (!enemy) continue; // Skip if no reference
+
             const distance = Phaser.Math.Distance.Between(
                 this.player.sprite.x,
                 this.player.sprite.y,
@@ -47,7 +61,7 @@ class BasicWeapon extends Weapon {
     }
 
     fireAtEnemy(enemy) {
-        // Try to play sound, but don't require it
+        // Try to play sound
         if (this.scene.sound && this.scene.cache.audio.exists('shoot')) {
             this.scene.sound.play('shoot', { volume: 0.2, rate: 1.2 });
         }
@@ -62,6 +76,21 @@ class BasicWeapon extends Weapon {
         projectile.setScale(1.2);
         projectile.setData('damage', this.damage);
         projectile.setData('destroyOnHit', true);
+        projectile.setData('weaponType', 'basic');
+
+        // Add a trail effect
+        const trail = this.scene.add.particles(0, 0, 'projectile', {
+            follow: projectile,
+            lifespan: 200,
+            scale: { start: 1.0, end: 0 },
+            alpha: { start: 0.6, end: 0 },
+            blendMode: 'ADD',
+            quantity: 1,
+            frequency: 30
+        });
+
+        // Store trail reference for cleanup
+        projectile.setData('trail', trail);
 
         // Add to projectiles group
         this.projectiles.add(projectile);
@@ -82,11 +111,18 @@ class BasicWeapon extends Weapon {
         // Rotate projectile to face direction
         projectile.rotation = Math.atan2(direction.y, direction.x);
 
-        // Destroy after time
+        // Destroy after time or when going off-screen
         this.scene.time.addEvent({
             delay: 1000,
             callback: () => {
-                if (projectile.active) projectile.destroy();
+                if (projectile.active) {
+                    // Clean up trail
+                    const trail = projectile.getData('trail');
+                    if (trail) trail.destroy();
+
+                    // Destroy projectile
+                    projectile.destroy();
+                }
             }
         });
     }
@@ -109,7 +145,94 @@ class BasicWeapon extends Weapon {
                 // Multi-shot at level 5
                 this.damage += 5;
                 this.cooldown *= 0.8;
+                this.range += 25;
                 break;
+        }
+
+        // Visual feedback
+        if (this.player && this.player.sprite && this.player.sprite.active) {
+            const upgradeText = this.scene.add.text(
+                this.player.sprite.x,
+                this.player.sprite.y - 40,
+                `Basic Weapon Upgraded! (Lvl ${this.level})`,
+                {
+                    fontSize: '16px',
+                    color: '#ffff00',
+                    stroke: '#000000',
+                    strokeThickness: 3
+                }
+            );
+            upgradeText.setOrigin(0.5);
+
+            this.scene.tweens.add({
+                targets: upgradeText,
+                y: upgradeText.y - 30,
+                alpha: 0,
+                duration: 1000,
+                onComplete: () => {
+                    upgradeText.destroy();
+                }
+            });
+        }
+    }
+
+    upgradeDamage(amount) {
+        this.damage += amount;
+
+        // Visual feedback
+        if (this.player && this.player.sprite && this.player.sprite.active) {
+            const upgradeText = this.scene.add.text(
+                this.player.sprite.x,
+                this.player.sprite.y - 40,
+                `+${amount} Basic Weapon Damage!`,
+                {
+                    fontSize: '16px',
+                    color: '#ff8866',
+                    stroke: '#000000',
+                    strokeThickness: 3
+                }
+            );
+            upgradeText.setOrigin(0.5);
+
+            this.scene.tweens.add({
+                targets: upgradeText,
+                y: upgradeText.y - 30,
+                alpha: 0,
+                duration: 1000,
+                onComplete: () => {
+                    upgradeText.destroy();
+                }
+            });
+        }
+    }
+
+    upgradeCooldown(factor) {
+        this.cooldown *= factor;
+
+        // Visual feedback
+        if (this.player && this.player.sprite && this.player.sprite.active) {
+            const upgradeText = this.scene.add.text(
+                this.player.sprite.x,
+                this.player.sprite.y - 40,
+                `Attack Speed Up!`,
+                {
+                    fontSize: '16px',
+                    color: '#88ff88',
+                    stroke: '#000000',
+                    strokeThickness: 3
+                }
+            );
+            upgradeText.setOrigin(0.5);
+
+            this.scene.tweens.add({
+                targets: upgradeText,
+                y: upgradeText.y - 30,
+                alpha: 0,
+                duration: 1000,
+                onComplete: () => {
+                    upgradeText.destroy();
+                }
+            });
         }
     }
 }
