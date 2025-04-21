@@ -88,7 +88,18 @@ class LevelUpUI {
         this.title.setVisible(true);
         this.subtitle.setVisible(true);
 
-        // Setup upgrade options
+        // Add shine effect to title
+        this.scene.tweens.add({
+            targets: this.title,
+            scaleX: 1.1,
+            scaleY: 1.1,
+            yoyo: true,
+            repeat: 5,
+            ease: 'Sine.easeInOut',
+            duration: 300
+        });
+
+        // Setup upgrade options with improved animations
         for (let i = 0; i < upgrades.length && i < 3; i++) {
             const button = this.upgradeButtons[i];
             const upgrade = upgrades[i];
@@ -97,14 +108,68 @@ class LevelUpUI {
             button.nameText.setText(upgrade.name);
             button.descText.setText(upgrade.description);
 
+            // Set color based on upgrade type
+            let bgColor = 0x333333;
+            if (upgrade.type === 'weapon') bgColor = 0x445588;
+            else if (upgrade.type === 'weaponUpgrade') bgColor = 0x884455;
+            else if (upgrade.type === 'player') bgColor = 0x448855;
+
+            button.button.fillColor = bgColor;
+            button.button.setStrokeStyle(2, 0xffffff);
+
             button.button.setVisible(true);
             button.nameText.setVisible(true);
             button.descText.setVisible(true);
 
-            // Set up click handler
+            // Animate button entrance
+            this.scene.tweens.add({
+                targets: [button.button, button.nameText, button.descText],
+                x: {
+                    from: this.scene.game.config.width + 200,
+                    to: this.scene.game.config.width / 2
+                },
+                ease: 'Back.easeOut',
+                duration: 500,
+                delay: i * 100
+            });
+
+            // Add hover effect
+            button.button.on('pointerover', () => {
+                button.button.setScale(1.05);
+                button.nameText.setScale(1.05);
+                this.scene.tweens.add({
+                    targets: button.button,
+                    fillColor: 0xffffff,
+                    ease: 'Sine.easeOut',
+                    duration: 200
+                });
+            });
+
+            button.button.on('pointerout', () => {
+                button.button.setScale(1);
+                button.nameText.setScale(1);
+                this.scene.tweens.add({
+                    targets: button.button,
+                    fillColor: bgColor,
+                    ease: 'Sine.easeOut',
+                    duration: 200
+                });
+            });
+
+            // Set up click handler with feedback
             button.button.off('pointerdown'); // Clear previous handler
             button.button.on('pointerdown', () => {
-                this.selectUpgrade(button.upgrade);
+                this.scene.sound.play('select', { volume: 0.5 });
+                this.scene.tweens.add({
+                    targets: [button.button, button.nameText, button.descText],
+                    scaleX: 0.95,
+                    scaleY: 0.95,
+                    yoyo: true,
+                    duration: 100,
+                    onComplete: () => {
+                        this.selectUpgrade(button.upgrade);
+                    }
+                });
             });
         }
     }

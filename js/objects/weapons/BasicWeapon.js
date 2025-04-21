@@ -37,6 +37,9 @@ class BasicWeapon extends Weapon {
     }
 
     fireAtEnemy(enemy) {
+        // Sound effect
+        this.scene.sound.play('shoot', { volume: 0.2, rate: 1.2 });
+
         // Create projectile
         const projectile = this.scene.physics.add.sprite(
             this.player.sprite.x,
@@ -44,12 +47,23 @@ class BasicWeapon extends Weapon {
             'projectile'
         );
 
-        projectile.setScale(0.5);
+        projectile.setScale(1.2);
         projectile.setData('damage', this.damage);
         projectile.setData('destroyOnHit', true);
 
+        // Add glow effect to projectile
+        const glow = this.scene.add.sprite(
+            this.player.sprite.x,
+            this.player.sprite.y,
+            'projectile'
+        );
+        glow.setScale(1.6);
+        glow.setAlpha(0.4);
+        glow.setBlendMode(Phaser.BlendModes.ADD);
+
         // Add to projectiles group
         this.projectiles.add(projectile);
+        this.projectiles.add(glow);
 
         // Calculate direction
         const direction = new Phaser.Math.Vector2(
@@ -63,17 +77,21 @@ class BasicWeapon extends Weapon {
             direction.x * speed,
             direction.y * speed
         );
+        glow.setVelocity(
+            direction.x * speed,
+            direction.y * speed
+        );
 
-        // Rotate projectile to face direction
+        // Rotate projectiles to face direction
         projectile.rotation = Math.atan2(direction.y, direction.x);
+        glow.rotation = projectile.rotation;
 
         // Destroy after time
         this.scene.time.addEvent({
             delay: 1000,
             callback: () => {
-                if (projectile.active) {
-                    projectile.destroy();
-                }
+                if (projectile.active) projectile.destroy();
+                if (glow.active) glow.destroy();
             }
         });
     }

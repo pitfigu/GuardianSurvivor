@@ -2,10 +2,19 @@ class Player {
     constructor(scene, x, y) {
         this.scene = scene;
 
-        // Create player sprite
+        // Create player sprite with improved visuals
         this.sprite = scene.physics.add.sprite(x, y, 'player');
         this.sprite.setCollideWorldBounds(true);
         this.sprite.setData('ref', this);
+
+        // Add shadow beneath player
+        this.shadow = scene.add.ellipse(x, y + 22, 36, 12, 0x000000, 0.3);
+
+        // Add glow effect
+        this.glow = scene.add.sprite(x, y, 'player');
+        this.glow.setAlpha(0.5);
+        this.glow.setScale(1.2);
+        this.glow.setBlendMode(Phaser.BlendModes.ADD);
 
         // Player stats
         this.health = GAME_SETTINGS.playerHealth;
@@ -15,11 +24,34 @@ class Player {
         // Weapons array
         this.weapons = [];
         this.addWeapon(new BasicWeapon(scene, this));
+
+        // Add pulsating effect to the glow
+        scene.tweens.add({
+            targets: this.glow,
+            alpha: 0.7,
+            scaleX: 1.3,
+            scaleY: 1.3,
+            yoyo: true,
+            repeat: -1,
+            ease: 'Sine.easeInOut',
+            duration: 1500
+        });
     }
 
     update(time, delta) {
         this.handleMovement();
         this.updateWeapons(time, delta);
+
+        // Update shadow and glow positions
+        if (this.shadow) {
+            this.shadow.x = this.sprite.x;
+            this.shadow.y = this.sprite.y + 22;
+        }
+
+        if (this.glow) {
+            this.glow.x = this.sprite.x;
+            this.glow.y = this.sprite.y;
+        }
     }
 
     handleMovement() {

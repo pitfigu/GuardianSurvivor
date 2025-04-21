@@ -25,6 +25,10 @@ class MainScene extends Phaser.Scene {
         // Create HUD
         this.hud = new HUD(this);
 
+        // Create tiled background
+        this.background = this.add.tileSprite(0, 0, this.game.config.width * 2, this.game.config.height * 2, 'bgPattern');
+        this.background.setOrigin(0.25, 0.25);
+
         // Create level up UI
         this.levelUpUI = new LevelUpUI(this);
 
@@ -52,8 +56,13 @@ class MainScene extends Phaser.Scene {
         // Update enemies
         this.enemyManager.update(time, delta);
 
+        this.background.tilePositionX += 0.1;
+        this.background.tilePositionY += 0.1;
+
         // Update HUD
         this.hud.update();
+
+        this.createParticleEmitters();
     }
 
     updateGameTime() {
@@ -63,6 +72,28 @@ class MainScene extends Phaser.Scene {
         if (this.gameTime % 30 === 0) { // Every 30 seconds
             this.enemyManager.increaseDifficulty();
         }
+    }
+
+    createParticleEmitters() {
+        // Enemy death particles
+        this.enemyDeathEmitter = this.add.particles(0, 0, 'enemy', {
+            speed: { min: 50, max: 150 },
+            angle: { min: 0, max: 360 },
+            scale: { start: 0.4, end: 0.0 },
+            lifespan: { min: 400, max: 600 },
+            blendMode: 'ADD',
+            frequency: -1 // Manually emitted
+        });
+
+        // XP collection particles
+        this.xpCollectEmitter = this.add.particles(0, 0, 'xp', {
+            speed: { min: 30, max: 80 },
+            angle: { min: 0, max: 360 },
+            scale: { start: 0.6, end: 0.0 },
+            lifespan: { min: 300, max: 500 },
+            blendMode: 'ADD',
+            frequency: -1 // Manually emitted
+        });
     }
 
     setupCollisions() {
@@ -121,12 +152,22 @@ class MainScene extends Phaser.Scene {
         const enemy = enemySprite.getData('ref');
         const damage = projectile.getData('damage') || 10;
 
+        // Sound effect and small hit flash
+        this.sound.play('hit', { volume: 0.3 });
+
         enemy.takeDamage(damage);
         if (projectile.getData('destroyOnHit') !== false) {
             projectile.destroy();
         }
 
         if (enemy.health <= 0) {
+            // Play death sound
+            this.sound.play('enemyDeath', { volume: 0.4 });
+
+            // Emit particle effect
+            this.enemyDeathEmitter.setPosition(enemySprite.x, enemySprite.y);
+            this.enemyDeathEmitter.explode(12);
+
             this.score += enemy.points;
             enemy.dropXP();
             enemy.destroy();
@@ -135,6 +176,14 @@ class MainScene extends Phaser.Scene {
 
     collectXP(playerSprite, xpGem) {
         const xpValue = xpGem.getData('xpValue') || 1;
+
+        // Sound effect
+        this.sound.play('pickup', { volume: 0.2 });
+
+        // Particle effect
+        this.xpCollectEmitter.setPosition(xpGem.x, xpGem.y);
+        this.xpCollectEmitter.explode(5);
+
         this.currentXP += xpValue;
         xpGem.destroy();
 
@@ -148,6 +197,25 @@ class MainScene extends Phaser.Scene {
         this.playerLevel++;
         this.currentXP -= this.xpToNextLevel;
         this.xpToNextLevel = Math.floor(this.xpToNextLevel * GAME_SETTINGS.xpScaling);
+
+        // Play level up sound
+        this.sound.play('levelUp', { volume: 0.7 });
+
+        // Create a flash effect
+        const flash = this.add.rectangle(0, 0,
+            this.game.config.width, this.game.config.height,
+            0xffffff, 0.7);
+        flash.setOrigin(0);
+        flash.setDepth(100);
+
+        this.tweens.add({
+            targets: flash,
+            alpha: 0,
+            duration: 500,
+            onComplete: () => {
+                flash.destroy();
+            }
+        });
 
         // Pause game and show level up UI
         this.paused = true;

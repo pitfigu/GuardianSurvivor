@@ -3,12 +3,30 @@ class Enemy {
         this.scene = scene;
         this.type = type;
 
-        // Create enemy sprite
-        this.sprite = scene.physics.add.sprite(x, y, 'enemy');
+        // Create enemy sprite with the right texture based on type
+        let texture = 'enemy';
+        if (type === 'fast') texture = 'fastEnemy';
+        if (type === 'tank') texture = 'tankEnemy';
+
+        this.sprite = scene.physics.add.sprite(x, y, texture);
         this.sprite.setData('ref', this);
+
+        // Add shadow beneath enemy
+        this.shadow = scene.add.ellipse(x, y + 20, 30, 10, 0x000000, 0.3);
 
         // Enemy stats based on type
         this.setStats(type);
+
+        // Add a subtle pulsating effect
+        scene.tweens.add({
+            targets: this.sprite,
+            scaleX: 1.1,
+            scaleY: 1.1,
+            yoyo: true,
+            repeat: -1,
+            ease: 'Sine.easeInOut',
+            duration: 800 + Math.random() * 600
+        });
     }
 
     setStats(type) {
@@ -54,6 +72,12 @@ class Enemy {
                 direction.x * this.speed,
                 direction.y * this.speed
             );
+
+            // Update shadow position
+            if (this.shadow) {
+                this.shadow.x = this.sprite.x;
+                this.shadow.y = this.sprite.y + 20;
+            }
         } else {
             this.sprite.setVelocity(0);
         }
@@ -89,6 +113,7 @@ class Enemy {
     }
 
     destroy() {
+        if (this.shadow) this.shadow.destroy();
         this.sprite.destroy();
     }
 }

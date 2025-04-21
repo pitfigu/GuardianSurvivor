@@ -13,22 +13,31 @@ class HUD {
 
     createHealthBar() {
         // Health bar background
-        this.healthBarBg = this.scene.add.rectangle(20, 20, 210, 25, 0x000000);
+        this.healthBarBg = this.scene.add.rectangle(20, 20, 210, 30, 0x000000, 0.7);
         this.healthBarBg.setOrigin(0, 0);
         this.healthBarBg.setScrollFactor(0);
+        this.healthBarBg.setStrokeStyle(2, 0x333333);
         this.healthBarBg.setDepth(10);
 
         // Health bar fill
-        this.healthBar = this.scene.add.rectangle(25, 25, 200, 15, 0xff0000);
+        this.healthBar = this.scene.add.rectangle(25, 25, 200, 20, 0xff0000);
         this.healthBar.setOrigin(0, 0);
         this.healthBar.setScrollFactor(0);
         this.healthBar.setDepth(11);
 
+        // Health bar shine
+        this.healthBarShine = this.scene.add.rectangle(25, 25, 200, 10, 0xff5555);
+        this.healthBarShine.setOrigin(0, 0);
+        this.healthBarShine.setScrollFactor(0);
+        this.healthBarShine.setDepth(11);
+
         // Health text
-        this.healthText = this.scene.add.text(125, 25, '', {
+        this.healthText = this.scene.add.text(125, 22, '', {
             fontSize: '16px',
             color: '#ffffff',
-            fontFamily: 'Arial'
+            fontFamily: 'Arial',
+            stroke: '#000000',
+            strokeThickness: 3
         });
         this.healthText.setOrigin(0.5, 0);
         this.healthText.setScrollFactor(0);
@@ -37,26 +46,44 @@ class HUD {
 
     createXPBar() {
         // XP bar background
-        this.xpBarBg = this.scene.add.rectangle(20, 55, 210, 15, 0x000000);
+        this.xpBarBg = this.scene.add.rectangle(20, 60, 210, 18, 0x000000, 0.7);
         this.xpBarBg.setOrigin(0, 0);
         this.xpBarBg.setScrollFactor(0);
+        this.xpBarBg.setStrokeStyle(2, 0x333333);
         this.xpBarBg.setDepth(10);
 
-        // XP bar fill
-        this.xpBar = this.scene.add.rectangle(25, 58, 200, 9, 0x00ffff);
+        // XP bar fill with gradient effect
+        this.xpBar = this.scene.add.rectangle(25, 63, 200, 12, 0x00ffff);
         this.xpBar.setOrigin(0, 0);
         this.xpBar.setScrollFactor(0);
         this.xpBar.setDepth(11);
 
+        // XP bar shine
+        this.xpBarShine = this.scene.add.rectangle(25, 63, 200, 6, 0x99ffff);
+        this.xpBarShine.setOrigin(0, 0);
+        this.xpBarShine.setScrollFactor(0);
+        this.xpBarShine.setDepth(11);
+
         // XP text
-        this.xpText = this.scene.add.text(125, 58, '', {
+        this.xpText = this.scene.add.text(125, 61, '', {
             fontSize: '12px',
             color: '#ffffff',
-            fontFamily: 'Arial'
+            fontFamily: 'Arial',
+            stroke: '#000000',
+            strokeThickness: 2
         });
         this.xpText.setOrigin(0.5, 0);
         this.xpText.setScrollFactor(0);
         this.xpText.setDepth(12);
+
+        // Add pulsating effect when nearing level up
+        this.scene.tweens.add({
+            targets: this.xpBarShine,
+            alpha: 0.7,
+            yoyo: true,
+            repeat: -1,
+            duration: 500
+        });
     }
 
     createScoreText() {
@@ -102,11 +129,13 @@ class HUD {
         // Update health bar
         const healthPercent = this.scene.player.health / this.scene.player.maxHealth;
         this.healthBar.width = 200 * healthPercent;
+        this.healthBarShine.width = 200 * healthPercent;
         this.healthText.setText(`${this.scene.player.health} / ${this.scene.player.maxHealth}`);
 
         // Update XP bar
         const xpPercent = this.scene.currentXP / this.scene.xpToNextLevel;
         this.xpBar.width = 200 * xpPercent;
+        this.xpBarShine.width = 200 * xpPercent;
         this.xpText.setText(`XP: ${this.scene.currentXP} / ${this.scene.xpToNextLevel}`);
 
         // Update score

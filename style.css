@@ -1,3 +1,4 @@
+/* style.css */
 body {
     margin: 0;
     padding: 0;
@@ -5,15 +6,33 @@ body {
     justify-content: center;
     align-items: center;
     min-height: 100vh;
-    background-color: #222;
-    font-family: Arial, sans-serif;
+    background-color: #111122;
+    font-family: 'Arial', sans-serif;
+    overflow: hidden;
+    background-image: linear-gradient(45deg, #111122 25%, #191933 25%, #191933 50%, #111122 50%, #111122 75%, #191933 75%, #191933);
+    background-size: 40px 40px;
 }
 
 #game-container {
     position: relative;
+    border: 2px solid #4488ff;
+    border-radius: 10px;
+    box-shadow: 0 0 20px rgba(68, 136, 255, 0.6);
 }
 
 canvas {
     display: block;
     margin: 0 auto;
+    border-radius: 8px;
+}
+
+/* Loading indicator */
+.loading {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 24px;
+    color: white;
+    text-shadow: 0 0 10px #4488ff;
 }

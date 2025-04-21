@@ -1,8 +1,10 @@
+// js/game.js
 const config = {
     type: Phaser.AUTO,
     parent: 'game-container',
-    width: 800,
-    height: 600,
+    width: 1024,    // Increased from 800
+    height: 768,    // Increased from 600
+    backgroundColor: '#111133', // Dark blue background
     physics: {
         default: 'arcade',
         arcade: {
