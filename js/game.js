@@ -19,12 +19,19 @@ const game = new Phaser.Game(config);
 
 // Global game settings
 const GAME_SETTINGS = {
-    playerSpeed: 160,
+    playerSpeed: 180,         // Slightly faster player
     playerHealth: 100,
     baseEnemySpawnRate: 2000, // ms
-    difficultyScaling: 0.95, // Spawn rate multiplier over time
+    minEnemySpawnRate: 500,   // Spawning won't get faster than this
+    difficultyScaling: 0.98,  // More gradual difficulty increase (was 0.95)
+    maxActiveEnemies: 50,     // Cap on enemies to prevent overwhelming the player
     xpToLevelUp: 10,
-    xpScaling: 1.5 // XP needed multiplier per level
+    xpScaling: 1.4,           // Slightly reduced XP scaling (was 1.5)
+    enemyDamage: {            // Standardize enemy damage
+        basic: 5,
+        fast: 3,
+        tank: 10
+    }
 };
 
 function playSound(scene, key, config = {}) {

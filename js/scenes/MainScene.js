@@ -14,14 +14,7 @@ class MainScene extends Phaser.Scene {
     }
 
     create() {
-        // Create a simple background color instead of using createBackground
-        this.add.rectangle(
-            this.game.config.width / 2,
-            this.game.config.height / 2,
-            this.game.config.width,
-            this.game.config.height,
-            0x222244
-        ).setDepth(-10);
+        this.createEnhancedBackground();
 
         // Create a grid for visual reference
         const grid = this.add.grid(
@@ -78,13 +71,69 @@ class MainScene extends Phaser.Scene {
 
         // Input handlers
         this.setupInputHandlers();
+    }
 
-        // Initialize debugger if available
-        if (typeof GameDebugger !== 'undefined') {
-            this.debugger = new GameDebugger(this);
-            this.debugger.initialize();
-            this.debugger.highlightPlayer();
+    createEnhancedBackground() {
+        // Create starfield background
+        const stars1 = this.add.tileSprite(0, 0,
+            this.game.config.width * 2,
+            this.game.config.height * 2,
+            'bgPattern'
+        );
+        stars1.setOrigin(0.25, 0.25);
+        stars1.setTint(0x222244);
+        stars1.setDepth(-10);
+        this.stars1 = stars1;
+
+        // Second starfield layer for parallax effect
+        const stars2 = this.add.tileSprite(0, 0,
+            this.game.config.width * 2,
+            this.game.config.height * 2,
+            'bgPattern'
+        );
+        stars2.setOrigin(0.25, 0.25);
+        stars2.setTint(0x3333aa);
+        stars2.setScale(0.5);
+        stars2.setDepth(-9);
+        stars2.setAlpha(0.7);
+        this.stars2 = stars2;
+
+        // Add nebula effect
+        const nebulaColors = [0x9955ff, 0x5599ff, 0xff5599];
+        for (let i = 0; i < 5; i++) {
+            const color = Phaser.Utils.Array.GetRandom(nebulaColors);
+            const x = Phaser.Math.Between(0, this.game.config.width);
+            const y = Phaser.Math.Between(0, this.game.config.height);
+            const size = Phaser.Math.Between(150, 350);
+
+            const nebula = this.add.circle(x, y, size, color, 0.03);
+            nebula.setDepth(-8);
+
+            // Make nebulas slowly pulse
+            this.tweens.add({
+                targets: nebula,
+                alpha: 0.06,
+                scale: 1.1,
+                duration: 3000 + i * 1000,
+                yoyo: true,
+                repeat: -1,
+                ease: 'Sine.easeInOut'
+            });
         }
+
+        // Add grid lines
+        const grid = this.add.grid(
+            this.game.config.width / 2,
+            this.game.config.height / 2,
+            this.game.config.width * 2,
+            this.game.config.height * 2,
+            64, 64,
+            undefined,
+            0,
+            0x4444aa,
+            0.15
+        );
+        grid.setDepth(-7);
     }
 
     update(time, delta) {
@@ -99,13 +148,15 @@ class MainScene extends Phaser.Scene {
         // Update HUD
         if (this.hud) this.hud.update();
 
-        // Update debugger
-        if (this.debugger) this.debugger.update();
-
         // Slowly animate the background grid
-        if (this.background) {
-            this.background.tilePositionX += 0.1;
-            this.background.tilePositionY += 0.1;
+        if (this.stars1) {
+            this.stars1.tilePositionX += 0.05;
+            this.stars1.tilePositionY += 0.05;
+        }
+
+        if (this.stars2) {
+            this.stars2.tilePositionX += 0.1;
+            this.stars2.tilePositionY += 0.1;
         }
     }
 
@@ -325,6 +376,9 @@ class MainScene extends Phaser.Scene {
             this.sound.play('levelUp', { volume: 0.7 });
         }
 
+        // Add screen shake for dramatic effect
+        this.cameras.main.shake(300, 0.01);
+
         // Create a flash effect
         const flash = this.add.rectangle(0, 0,
             this.game.config.width, this.game.config.height,
@@ -364,17 +418,30 @@ class MainScene extends Phaser.Scene {
     }
 
     gameOver() {
+        // Play game over sound
+        if (this.sound && this.cache.audio.exists('gameOver')) {
+            this.sound.play('gameOver', { volume: 0.7 });
+        }
+
+        // Screen shake
+        this.cameras.main.shake(500, 0.03);
+
         // Update high score
         if (this.score > GAME_STATE.highScore) {
             GAME_STATE.highScore = this.score;
             localStorage.setItem('highScore', this.score);
         }
 
-        // Go to game over scene
-        this.scene.start('GameOverScene', {
-            score: this.score,
-            time: this.gameTime,
-            level: this.playerLevel
+        // Flash effect
+        this.cameras.main.flash(1000, 255, 0, 0);
+
+        // Go to game over scene after a short delay
+        this.time.delayedCall(1000, () => {
+            this.scene.start('GameOverScene', {
+                score: this.score,
+                time: this.gameTime,
+                level: this.playerLevel
+            });
         });
     }
 }

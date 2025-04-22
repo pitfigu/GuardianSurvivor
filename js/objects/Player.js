@@ -8,16 +8,33 @@ class Player {
         this.sprite.setCollideWorldBounds(true);
         this.sprite.setData('ref', this);
 
-        // Make sure player is visible
-        this.sprite.setVisible(true);
-        this.sprite.setAlpha(1);
+        // Make player more visually distinct
+        this.sprite.setScale(1.2);
+        this.sprite.setTint(0x4488ff);
         this.sprite.setDepth(10);
-
-        console.log("Player sprite created:", this.sprite);
 
         // Add shadow beneath player
         this.shadow = scene.add.ellipse(x, y + 10, 24, 8, 0x000000, 0.5);
         this.shadow.setDepth(9);
+
+        // Add glowing aura
+        this.aura = scene.add.sprite(x, y, 'player');
+        this.aura.setScale(1.6);
+        this.aura.setAlpha(0.3);
+        this.aura.setTint(0x00ffff);
+        this.aura.setBlendMode(Phaser.BlendModes.ADD);
+        this.aura.setDepth(9);
+
+        // Add pulsing effect to aura
+        scene.tweens.add({
+            targets: this.aura,
+            scale: 1.8,
+            alpha: 0.2,
+            duration: 1500,
+            yoyo: true,
+            repeat: -1,
+            ease: 'Sine.easeInOut'
+        });
 
         // Player stats
         this.health = GAME_SETTINGS.playerHealth;
@@ -26,9 +43,24 @@ class Player {
 
         // Weapons array
         this.weapons = [];
-
-        // Add initial weapon (without setting up collisions yet)
         this.addWeapon(new BasicWeapon(scene, this));
+
+        // Add small light particles around player
+        try {
+            const particles = scene.add.particles(x, y, 'xp', {
+                scale: { start: 0.2, end: 0 },
+                speed: { min: 10, max: 20 },
+                quantity: 1,
+                frequency: 200,
+                lifespan: 1000,
+                alpha: { start: 0.5, end: 0 },
+                blendMode: 'ADD'
+            });
+            particles.setDepth(11);
+            this.particles = particles;
+        } catch (e) {
+            console.warn("Could not create player particles", e);
+        }
     }
 
     update(time, delta) {
@@ -39,6 +71,17 @@ class Player {
         if (this.shadow) {
             this.shadow.x = this.sprite.x;
             this.shadow.y = this.sprite.y + 10;
+        }
+
+        // Update aura position
+        if (this.aura) {
+            this.aura.x = this.sprite.x;
+            this.aura.y = this.sprite.y;
+        }
+
+        // Update particles position
+        if (this.particles) {
+            this.particles.setPosition(this.sprite.x, this.sprite.y);
         }
     }
 
@@ -94,7 +137,40 @@ class Player {
             duration: 100,
             yoyo: true
         });
+
+        // Screen shake
+        this.scene.cameras.main.shake(100, 0.01);
+
+        // Flash red
+        this.sprite.setTint(0xff0000);
+        this.scene.time.delayedCall(100, () => {
+            this.sprite.setTint(0x4488ff);
+        });
+
+        // Damage number
+        const damageText = this.scene.add.text(
+            this.sprite.x,
+            this.sprite.y - 20,
+            `-${amount}`,
+            {
+                fontSize: '16px',
+                color: '#ff0000',
+                stroke: '#000000',
+                strokeThickness: 3
+            }
+        );
+        damageText.setOrigin(0.5);
+
+        this.scene.tweens.add({
+            targets: damageText,
+            y: damageText.y - 30,
+            alpha: 0,
+            duration: 800,
+            onComplete: () => damageText.destroy()
+        });
     }
+
+
 
     heal(amount) {
         this.health += amount;

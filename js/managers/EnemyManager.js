@@ -42,6 +42,9 @@ class EnemyManager {
     }
 
     spawnEnemy() {
+        if (this.enemies.getChildren().length >= GAME_SETTINGS.maxActiveEnemies) {
+            return; // Skip spawning if too many enemies
+        }
         // Calculate random position outside screen
         const { width, height } = this.scene.sys.game.config;
         let x, y;
@@ -86,13 +89,68 @@ class EnemyManager {
     increaseDifficulty() {
         this.difficulty += 0.5;
 
-        // Make enemies spawn faster
+        // Make enemies spawn faster but respect the minimum value
         this.spawnRate *= GAME_SETTINGS.difficultyScaling;
+        this.spawnRate = Math.max(this.spawnRate, GAME_SETTINGS.minEnemySpawnRate);
+
         this.spawnTimer.reset({
             delay: this.spawnRate,
             callback: this.spawnEnemy,
             callbackScope: this,
             loop: true
         });
+
+        // Every few difficulty levels, add a "rest" period by temporarily slowing spawns
+        if (Math.floor(this.difficulty) % 5 === 0) {
+            const originalSpawnRate = this.spawnRate;
+            this.spawnRate *= 3; // Temporarily triple the spawn time
+            this.spawnTimer.reset({
+                delay: this.spawnRate,
+                callback: this.spawnEnemy,
+                callbackScope: this,
+                loop: true
+            });
+
+            // Show "Rest period" message
+            const restText = this.scene.add.text(
+                this.scene.game.config.width / 2,
+                100,
+                'Rest Period!',
+                {
+                    fontSize: '32px',
+                    color: '#00ff00',
+                    stroke: '#000000',
+                    strokeThickness: 4,
+                    fontFamily: 'Arial'
+                }
+            );
+            restText.setOrigin(0.5);
+            restText.setScrollFactor(0);
+            restText.setDepth(100);
+
+            // Add timer effect
+            this.scene.tweens.add({
+                targets: restText,
+                scale: 1.2,
+                alpha: 0,
+                y: 80,
+                duration: 2000,
+                ease: 'Power2',
+                onComplete: () => {
+                    restText.destroy();
+
+                    // Reset back to normal spawn rate after 10 seconds
+                    this.scene.time.delayedCall(10000, () => {
+                        this.spawnRate = originalSpawnRate;
+                        this.spawnTimer.reset({
+                            delay: this.spawnRate,
+                            callback: this.spawnEnemy,
+                            callbackScope: this,
+                            loop: true
+                        });
+                    });
+                }
+            });
+        }
     }
 }

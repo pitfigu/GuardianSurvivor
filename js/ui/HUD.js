@@ -12,14 +12,14 @@ class HUD {
     }
 
     createHealthBar() {
-        // Health bar background
+        // Health bar container with beveled style
         this.healthBarBg = this.scene.add.rectangle(20, 20, 210, 30, 0x000000, 0.7);
         this.healthBarBg.setOrigin(0, 0);
         this.healthBarBg.setScrollFactor(0);
-        this.healthBarBg.setStrokeStyle(2, 0x333333);
+        this.healthBarBg.setStrokeStyle(2, 0x3333aa);
         this.healthBarBg.setDepth(10);
 
-        // Health bar fill
+        // Health bar fill with gradient effect
         this.healthBar = this.scene.add.rectangle(25, 25, 200, 20, 0xff0000);
         this.healthBar.setOrigin(0, 0);
         this.healthBar.setScrollFactor(0);
@@ -31,8 +31,14 @@ class HUD {
         this.healthBarShine.setScrollFactor(0);
         this.healthBarShine.setDepth(11);
 
+        // Health icon
+        const healthIcon = this.scene.add.circle(15, 35, 8, 0xff0000);
+        healthIcon.setScrollFactor(0);
+        healthIcon.setDepth(11);
+        this.scene.add.circle(15, 35, 4, 0xffffff, 0.7).setScrollFactor(0).setDepth(11);
+
         // Health text
-        this.healthText = this.scene.add.text(125, 22, '', {
+        this.healthText = this.scene.add.text(130, 22, '', {
             fontSize: '16px',
             color: '#ffffff',
             fontFamily: 'Arial',
@@ -45,11 +51,11 @@ class HUD {
     }
 
     createXPBar() {
-        // XP bar background
+        // XP bar background with beveled style
         this.xpBarBg = this.scene.add.rectangle(20, 60, 210, 18, 0x000000, 0.7);
         this.xpBarBg.setOrigin(0, 0);
         this.xpBarBg.setScrollFactor(0);
-        this.xpBarBg.setStrokeStyle(2, 0x333333);
+        this.xpBarBg.setStrokeStyle(2, 0x3333aa);
         this.xpBarBg.setDepth(10);
 
         // XP bar fill with gradient effect
@@ -64,8 +70,13 @@ class HUD {
         this.xpBarShine.setScrollFactor(0);
         this.xpBarShine.setDepth(11);
 
+        // XP icon
+        const xpIcon = this.scene.add.star(15, 69, 5, 4, 8, 0x00ffff);
+        xpIcon.setScrollFactor(0);
+        xpIcon.setDepth(11);
+
         // XP text
-        this.xpText = this.scene.add.text(125, 61, '', {
+        this.xpText = this.scene.add.text(130, 61, '', {
             fontSize: '12px',
             color: '#ffffff',
             fontFamily: 'Arial',
@@ -76,10 +87,10 @@ class HUD {
         this.xpText.setScrollFactor(0);
         this.xpText.setDepth(12);
 
-        // Add pulsating effect when nearing level up
+        // XP pulsating when near level up
         this.scene.tweens.add({
             targets: this.xpBarShine,
-            alpha: 0.7,
+            alpha: { from: 0.7, to: 1.0 },
             yoyo: true,
             repeat: -1,
             duration: 500
@@ -89,14 +100,25 @@ class HUD {
     createScoreText() {
         const { width } = this.scene.sys.game.config;
 
+        // Score container
+        this.scoreContainer = this.scene.add.rectangle(
+            width - 120, 25, 200, 40, 0x000000, 0.6
+        );
+        this.scoreContainer.setScrollFactor(0);
+        this.scoreContainer.setDepth(10);
+        this.scoreContainer.setStrokeStyle(1, 0x3333aa);
+
+        // Score text
         this.scoreText = this.scene.add.text(width - 20, 20, 'Score: 0', {
             fontSize: '24px',
             color: '#ffffff',
-            fontFamily: 'Arial'
+            fontFamily: 'Arial',
+            stroke: '#000000',
+            strokeThickness: 3
         });
         this.scoreText.setOrigin(1, 0);
         this.scoreText.setScrollFactor(0);
-        this.scoreText.setDepth(10);
+        this.scoreText.setDepth(11);
     }
 
     createTimeText() {
@@ -137,6 +159,15 @@ class HUD {
         this.xpBar.width = 200 * xpPercent;
         this.xpBarShine.width = 200 * xpPercent;
         this.xpText.setText(`XP: ${this.scene.currentXP} / ${this.scene.xpToNextLevel}`);
+
+        // Add pulsating effect as player nears level-up
+        if (xpPercent > 0.9) {
+            this.xpBarShine.fillColor = 0xffffff;
+            this.xpText.setColor('#ffff00');
+        } else {
+            this.xpBarShine.fillColor = 0x99ffff;
+            this.xpText.setColor('#ffffff');
+        }
 
         // Update score
         this.scoreText.setText(`Score: ${this.scene.score}`);

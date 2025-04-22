@@ -84,106 +84,193 @@ class LevelUpUI {
 
     show(upgrades) {
         this.visible = true;
-        this.overlay.setVisible(true);
-        this.title.setVisible(true);
-        this.subtitle.setVisible(true);
 
-        // Add shine effect to title
-        this.scene.tweens.add({
-            targets: this.title,
-            scaleX: 1.1,
-            scaleY: 1.1,
-            yoyo: true,
-            repeat: 5,
-            ease: 'Sine.easeInOut',
-            duration: 300
-        });
-
-        // Setup upgrade options with improved animations
-        for (let i = 0; i < upgrades.length && i < 3; i++) {
-            const button = this.upgradeButtons[i];
-            const upgrade = upgrades[i];
-
-            button.upgrade = upgrade;
-            button.nameText.setText(upgrade.name);
-            button.descText.setText(upgrade.description);
-
-            // Set color based on upgrade type
-            let bgColor = 0x333333;
-            if (upgrade.type === 'weapon') bgColor = 0x445588;
-            else if (upgrade.type === 'weaponUpgrade') bgColor = 0x884455;
-            else if (upgrade.type === 'player') bgColor = 0x448855;
-
-            button.button.fillColor = bgColor;
-            button.button.setStrokeStyle(2, 0xffffff);
-
-            button.button.setVisible(true);
-            button.nameText.setVisible(true);
-            button.descText.setVisible(true);
-
-            // Animate button entrance
+        // Add dramatic pause and effect when leveling up
+        this.scene.time.delayedCall(300, () => {
+            // Fade in overlay with a flash
+            this.overlay.setVisible(true);
+            this.overlay.setAlpha(0);
             this.scene.tweens.add({
-                targets: [button.button, button.nameText, button.descText],
-                x: {
-                    from: this.scene.game.config.width + 200,
-                    to: this.scene.game.config.width / 2
-                },
-                ease: 'Back.easeOut',
-                duration: 500,
-                delay: i * 100
+                targets: this.overlay,
+                alpha: 0.7,
+                duration: 500
             });
 
-            // Add hover effect
-            button.button.on('pointerover', () => {
-                button.button.setScale(1.05);
-                button.nameText.setScale(1.05);
-                this.scene.tweens.add({
-                    targets: button.button,
-                    fillColor: 0xffffff,
-                    ease: 'Sine.easeOut',
-                    duration: 200
+            // Show level up title with animation
+            this.title.setVisible(true);
+            this.title.setScale(0.5);
+            this.title.setAlpha(0);
+            this.scene.tweens.add({
+                targets: this.title,
+                scale: 1,
+                alpha: 1,
+                duration: 600,
+                ease: 'Back.easeOut'
+            });
+
+            // Show subtitle with animation
+            this.subtitle.setVisible(true);
+            this.subtitle.setAlpha(0);
+            this.scene.tweens.add({
+                targets: this.subtitle,
+                alpha: 1,
+                duration: 600,
+                delay: 300
+            });
+
+            // Setup upgrade options with improved animations
+            for (let i = 0; i < upgrades.length && i < 3; i++) {
+                const button = this.upgradeButtons[i];
+                const upgrade = upgrades[i];
+
+                button.upgrade = upgrade;
+                button.nameText.setText(upgrade.name);
+                button.descText.setText(upgrade.description);
+
+                // Set colors and styling based on upgrade type
+                let bgColor = 0x333333;
+                let borderColor = 0x666666;
+                let iconKey = 'player';
+
+                if (upgrade.type === 'weapon') {
+                    bgColor = 0x224477;
+                    borderColor = 0x4488ff;
+                    iconKey = 'projectile';
+                } else if (upgrade.type === 'weaponUpgrade') {
+                    bgColor = 0x772244;
+                    borderColor = 0xff88aa;
+                    iconKey = 'projectile';
+                } else if (upgrade.type === 'player') {
+                    bgColor = 0x227744;
+                    borderColor = 0x88ffaa;
+                    iconKey = 'player';
+                }
+
+                button.button.fillColor = bgColor;
+                button.button.setStrokeStyle(2, borderColor);
+
+                // Add icon
+                if (button.icon) button.icon.destroy();
+                button.icon = this.scene.add.sprite(
+                    this.scene.game.config.width / 2 - 160,
+                    button.button.y,
+                    iconKey
+                );
+                button.icon.setScale(0.8);
+                button.icon.setVisible(true);
+                button.icon.setDepth(102);
+
+                // Make components visible
+                button.button.setVisible(true);
+                button.nameText.setVisible(true);
+                button.descText.setVisible(true);
+
+                // Animate entrance
+                const elements = [button.button, button.nameText, button.descText, button.icon];
+                elements.forEach(el => {
+                    el.setAlpha(0);
+                    el.x = this.scene.game.config.width + 200;
                 });
-            });
 
-            button.button.on('pointerout', () => {
-                button.button.setScale(1);
-                button.nameText.setScale(1);
                 this.scene.tweens.add({
-                    targets: button.button,
-                    fillColor: bgColor,
-                    ease: 'Sine.easeOut',
-                    duration: 200
+                    targets: elements,
+                    x: {
+                        getEnd: (target) => {
+                            if (target === button.icon) {
+                                return this.scene.game.config.width / 2 - 160;
+                            } else if (target === button.nameText || target === button.descText) {
+                                return this.scene.game.config.width / 2;
+                            } else {
+                                return this.scene.game.config.width / 2;
+                            }
+                        }
+                    },
+                    alpha: 1,
+                    ease: 'Back.easeOut',
+                    duration: 600,
+                    delay: 500 + i * 150
                 });
-            });
 
-            // Set up click handler with feedback
-            button.button.off('pointerdown'); // Clear previous handler
-            button.button.on('pointerdown', () => {
-                this.scene.sound.play('select', { volume: 0.5 });
-                this.scene.tweens.add({
-                    targets: [button.button, button.nameText, button.descText],
-                    scaleX: 0.95,
-                    scaleY: 0.95,
-                    yoyo: true,
-                    duration: 100,
-                    onComplete: () => {
-                        this.selectUpgrade(button.upgrade);
+                // Add hover effect
+                button.button.on('pointerover', () => {
+                    button.button.setScale(1.05);
+                    button.nameText.setScale(1.05);
+                    button.icon.setScale(0.9);
+                    this.scene.tweens.add({
+                        targets: button.button,
+                        fillColor: borderColor,
+                        ease: 'Sine.easeOut',
+                        duration: 200
+                    });
+                });
+
+                button.button.on('pointerout', () => {
+                    button.button.setScale(1);
+                    button.nameText.setScale(1);
+                    button.icon.setScale(0.8);
+                    this.scene.tweens.add({
+                        targets: button.button,
+                        fillColor: bgColor,
+                        ease: 'Sine.easeOut',
+                        duration: 200
+                    });
+                });
+
+                // Set up click handler with feedback
+                button.button.off('pointerdown');
+                button.button.on('pointerdown', () => {
+                    // Play selection sound
+                    if (this.scene.sound && this.scene.cache.audio.exists('select')) {
+                        this.scene.sound.play('select', { volume: 0.5 });
                     }
+
+                    // Button press effect
+                    this.scene.tweens.add({
+                        targets: [button.button, button.nameText, button.descText, button.icon],
+                        scale: 0.95,
+                        duration: 100,
+                        yoyo: true,
+                        onComplete: () => {
+                            this.selectUpgrade(button.upgrade);
+                        }
+                    });
                 });
-            });
-        }
+            }
+        });
     }
 
     hide() {
-        this.visible = false;
-        this.overlay.setVisible(false);
-        this.title.setVisible(false);
-        this.subtitle.setVisible(false);
+        if (!this.visible) return;
 
+        // Animate elements away
+        const elements = [this.title, this.subtitle];
         this.upgradeButtons.forEach(button => {
-            button.button.setVisible(false);
-            button.nameText.setVisible(false);
-            button.descText.setVisible(false);
+            if (button.button.visible) {
+                elements.push(button.button, button.nameText, button.descText);
+                if (button.icon) elements.push(button.icon);
+            }
+        });
+
+        this.scene.tweens.add({
+            targets: elements,
+            alpha: 0,
+            y: '+=20',
+            duration: 300,
+            onComplete: () => {
+                // Hide all UI elements
+                this.overlay.setVisible(false);
+                this.title.setVisible(false);
+                this.subtitle.setVisible(false);
+
+                this.upgradeButtons.forEach(button => {
+                    button.button.setVisible(false);
+                    button.nameText.setVisible(false);
+                    button.descText.setVisible(false);
+                    if (button.icon) button.icon.setVisible(false);
+                });
+
+                this.visible = false;
+            }
         });
     }
 
