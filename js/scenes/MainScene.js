@@ -111,30 +111,45 @@ class MainScene extends Phaser.Scene {
 
     createParticleEmitters() {
         try {
-            // Enemy death particles
-            this.enemyDeathEmitter = this.add.particles(0, 0, 'enemy', {
+            // Create particle managers first
+            const deathParticles = this.add.particles('enemy');
+            const xpParticles = this.add.particles('xp');
+
+            // Then create emitters
+            this.enemyDeathEmitter = deathParticles.createEmitter({
                 speed: { min: 50, max: 150 },
                 angle: { min: 0, max: 360 },
                 scale: { start: 0.4, end: 0.0 },
                 lifespan: { min: 400, max: 600 },
                 blendMode: 'ADD',
-                frequency: -1 // Manually emitted
+                frequency: -1, // Manually emitted
+                active: true,
+                on: false // Not emitting automatically
             });
 
-            // XP collection particles
-            this.xpCollectEmitter = this.add.particles(0, 0, 'xp', {
+            this.xpCollectEmitter = xpParticles.createEmitter({
                 speed: { min: 30, max: 80 },
                 angle: { min: 0, max: 360 },
                 scale: { start: 0.6, end: 0.0 },
                 lifespan: { min: 300, max: 500 },
                 blendMode: 'ADD',
-                frequency: -1 // Manually emitted
+                frequency: -1, // Manually emitted
+                active: true,
+                on: false // Not emitting automatically
             });
         } catch (error) {
             console.warn("Error creating particle emitters:", error);
-            // Create dummy emitters that do nothing to avoid errors
-            this.enemyDeathEmitter = { setPosition: () => { }, explode: () => { } };
-            this.xpCollectEmitter = { setPosition: () => { }, explode: () => { } };
+            // Create dummy emitters with all the methods we use
+            this.enemyDeathEmitter = {
+                setPosition: () => { },
+                explode: () => { },
+                emitParticleAt: () => { }
+            };
+            this.xpCollectEmitter = {
+                setPosition: () => { },
+                explode: () => { },
+                emitParticleAt: () => { }
+            };
         }
     }
 
@@ -244,9 +259,20 @@ class MainScene extends Phaser.Scene {
             }
 
             // Visual effect for enemy death (safely)
-            if (this.enemyDeathEmitter && typeof this.enemyDeathEmitter.setPosition === 'function') {
-                this.enemyDeathEmitter.setPosition(enemySprite.x, enemySprite.y);
-                this.enemyDeathEmitter.explode(12);
+            try {
+                if (this.enemyDeathEmitter) {
+                    if (typeof this.enemyDeathEmitter.emitParticleAt === 'function') {
+                        // Try emitParticleAt first
+                        this.enemyDeathEmitter.emitParticleAt(enemySprite.x, enemySprite.y, 12);
+                    }
+                    else if (typeof this.enemyDeathEmitter.explode === 'function') {
+                        // Fall back to explode if available
+                        this.enemyDeathEmitter.setPosition(enemySprite.x, enemySprite.y);
+                        this.enemyDeathEmitter.explode(12);
+                    }
+                }
+            } catch (error) {
+                console.warn("Particle emission failed:", error);
             }
 
             this.score += enemy.points;
@@ -266,9 +292,18 @@ class MainScene extends Phaser.Scene {
         }
 
         // Visual effect for XP collection
-        if (this.xpCollectEmitter && typeof this.xpCollectEmitter.setPosition === 'function') {
-            this.xpCollectEmitter.setPosition(xpGem.x, xpGem.y);
-            this.xpCollectEmitter.explode(5);
+        try {
+            if (this.xpCollectEmitter) {
+                if (typeof this.xpCollectEmitter.emitParticleAt === 'function') {
+                    this.xpCollectEmitter.emitParticleAt(xpGem.x, xpGem.y, 5);
+                }
+                else if (typeof this.xpCollectEmitter.explode === 'function') {
+                    this.xpCollectEmitter.setPosition(xpGem.x, xpGem.y);
+                    this.xpCollectEmitter.explode(5);
+                }
+            }
+        } catch (error) {
+            console.warn("XP particle emission failed:", error);
         }
 
         this.currentXP += xpValue;
