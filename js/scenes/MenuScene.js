@@ -34,39 +34,165 @@ class MenuScene extends Phaser.Scene {
     }
 
     create() {
-        // Create background
-        this.createBackground();
+        // Create animated background
+        this.createEnhancedBackground();
 
-        // Title with glow effect
-        const title = this.add.text(
+        // Game logo/title
+        this.createGameTitle();
+
+        // Player info section with username input
+        this.createPlayerSection();
+
+        // Main menu options
+        this.createMenuOptions();
+
+        // Game info and credits
+        this.createInfoSection();
+
+        // Fade in everything
+        this.cameras.main.fadeIn(1000);
+    }
+
+    createEnhancedBackground() {
+        // Create a starfield effect
+        const width = this.cameras.main.width;
+        const height = this.cameras.main.height;
+
+        // Gradient background
+        const gradientTop = 0x110022;
+        const gradientBottom = 0x330066;
+
+        // Use rectangles to simulate gradient
+        for (let i = 0; i < height; i += 4) {
+            const ratio = i / height;
+            const color = Phaser.Display.Color.Interpolate.ColorWithColor(
+                { r: (gradientTop >> 16) & 0xFF, g: (gradientTop >> 8) & 0xFF, b: gradientTop & 0xFF },
+                { r: (gradientBottom >> 16) & 0xFF, g: (gradientBottom >> 8) & 0xFF, b: gradientBottom & 0xFF },
+                100,
+                ratio * 100
+            );
+
+            const rgbColor = Phaser.Display.Color.GetColor(color.r, color.g, color.b);
+
+            const rect = this.add.rectangle(width / 2, i, width, 4, rgbColor);
+            rect.setOrigin(0.5, 0);
+            rect.setDepth(-15);
+        }
+
+        // Add floating stars
+        for (let i = 0; i < 50; i++) {
+            const x = Phaser.Math.Between(0, width);
+            const y = Phaser.Math.Between(0, height);
+            const size = Phaser.Math.Between(1, 3);
+            const alpha = Phaser.Math.FloatBetween(0.3, 0.8);
+
+            const star = this.add.circle(x, y, size, 0xffffff, alpha);
+
+            // Random twinkling animation
+            this.tweens.add({
+                targets: star,
+                alpha: Phaser.Math.FloatBetween(0.1, 0.4),
+                duration: Phaser.Math.Between(1000, 3000),
+                yoyo: true,
+                repeat: -1
+            });
+        }
+
+        // Add some nebulae for atmosphere
+        const nebulaColors = [0x5522aa, 0x2244aa, 0x4400aa];
+        for (let i = 0; i < 3; i++) {
+            const x = Phaser.Math.Between(0, width);
+            const y = Phaser.Math.Between(0, height);
+            const radius = Phaser.Math.Between(150, 300);
+
+            const nebula = this.add.circle(x, y, radius, nebulaColors[i], 0.03);
+            nebula.setDepth(-10);
+
+            // Subtle pulsating effect
+            this.tweens.add({
+                targets: nebula,
+                alpha: 0.06,
+                scale: 1.1,
+                duration: 5000,
+                ease: 'Sine.easeInOut',
+                yoyo: true,
+                repeat: -1
+            });
+        }
+
+        // Add a subtle grid pattern
+        const grid = this.add.grid(
+            width / 2, height / 2,
+            width * 2, height * 2,
+            64, 64,
+            undefined, 0,
+            0x3333aa, 0.08
+        );
+        grid.setDepth(-5);
+    }
+
+    createGameTitle() {
+        // Create fancy title with glow effect
+        const titleText = this.add.text(
             this.cameras.main.width / 2,
-            120,
+            100,
             'GUARDIAN SURVIVOR',
             {
-                fontFamily: 'Arial',
-                fontSize: 48,
+                fontFamily: 'Arial Black, Arial Bold, Gadget, sans-serif',
+                fontSize: 52,
                 color: '#88bbff',
-                fontStyle: 'bold',
+                align: 'center',
                 stroke: '#000066',
-                strokeThickness: 6,
-                shadow: { color: '#0088ff', fill: true, offsetX: 0, offsetY: 0, blur: 10 }
+                strokeThickness: 8,
+                shadow: { color: '#0066ff', fill: true, offsetX: 0, offsetY: 0, blur: 15 }
             }
         ).setOrigin(0.5);
 
-        // Add a subtle animation to the title
+        // Add subtle animation to title
         this.tweens.add({
-            targets: title,
-            scale: 1.05,
-            duration: 1500,
+            targets: titleText,
+            scale: { from: 1, to: 1.05 },
+            duration: 2000,
             ease: 'Sine.easeInOut',
             yoyo: true,
             repeat: -1
         });
 
-        // Username section
+        // Add a particle effect behind the title
+        try {
+            const particles = this.add.particles(this.cameras.main.width / 2, 100, 'xp', {
+                scale: { start: 0.5, end: 0.1 },
+                speed: { min: 0, max: 20 },
+                quantity: 1,
+                frequency: 200,
+                lifespan: 2000,
+                alpha: { start: 0.5, end: 0 },
+                blendMode: 'ADD',
+                emitZone: {
+                    source: new Phaser.Geom.Rectangle(-200, -20, 400, 40),
+                    type: 'random'
+                }
+            });
+        } catch (e) {
+            console.warn("Particle effect creation failed:", e);
+        }
+    }
+
+    createPlayerSection() {
+        const y = 220;
+
+        // Create panel background
+        const panelBg = this.add.rectangle(
+            this.cameras.main.width / 2, y,
+            400, 120,
+            0x222255, 0.7
+        );
+        panelBg.setStrokeStyle(2, 0x4444aa);
+
+        // Username section title
         this.add.text(
             this.cameras.main.width / 2,
-            210,
+            y - 40,
             'ENTER YOUR NAME:',
             {
                 fontFamily: 'Arial',
@@ -83,152 +209,139 @@ class MenuScene extends Phaser.Scene {
         // Create DOM element for username input
         const element = this.add.dom(
             this.cameras.main.width / 2,
-            250
+            y
         ).createFromHTML(`
-            <div style="background-color: #222266; padding: 10px; border-radius: 5px; border: 2px solid #4444aa;">
+            <div style="background-color: #222266; padding: 10px; border-radius: 8px; border: 2px solid #4444aa;">
                 <input type="text" id="username" name="username" 
                     placeholder="Enter your name" 
                     value="${savedUsername}"
-                    style="padding: 8px; font-size: 16px; border-radius: 4px; border: none; width: 200px; text-align: center;">
+                    maxlength="15"
+                    style="padding: 12px; font-size: 20px; border-radius: 6px; border: none; width: 250px; text-align: center; background-color: #111133; color: #ffffff; outline: none;">
             </div>
         `);
 
-        // Start Game Button
-        const startButton = this.add.rectangle(
-            this.cameras.main.width / 2,
-            350,
-            240,
-            60,
-            0x4444aa
-        ).setInteractive({ useHandCursor: true });
+        // Focus input on click
+        element.addListener('click');
+        element.on('click', (event) => {
+            event.target.focus();
+        });
+    }
 
-        // Button border
-        const startButtonBorder = this.add.rectangle(
-            this.cameras.main.width / 2,
-            350,
-            240,
-            60
-        ).setStrokeStyle(2, 0x8888ff);
+    createMenuOptions() {
+        const baseY = 350;
+        const spacing = 80;
 
-        // Button text
-        const startText = this.add.text(
-            this.cameras.main.width / 2,
-            350,
-            'START GAME',
-            {
-                fontFamily: 'Arial',
-                fontSize: 24,
-                color: '#ffffff'
-            }
-        ).setOrigin(0.5);
-
-        // Button hover effect
-        startButton.on('pointerover', () => {
-            startButton.fillColor = 0x6666cc;
-            startButton.scale = 1.05;
-            startText.scale = 1.05;
+        // Create start game button
+        this.createMenuButton(baseY, 'START GAME', 0x4444aa, () => {
+            this.startGame();
         });
 
-        startButton.on('pointerout', () => {
-            startButton.fillColor = 0x4444aa;
-            startButton.scale = 1;
-            startText.scale = 1;
-        });
-
-        // Button click action
-        startButton.on('pointerdown', () => {
-            // Play selection sound if available
-            if (this.sound && this.cache.audio.exists('select')) {
-                this.sound.play('select', { volume: 0.5 });
-            }
-
-            // Save username
-            const inputElement = document.getElementById('username');
-            if (inputElement) {
-                const username = inputElement.value || 'Player';
-                localStorage.setItem('username', username);
-                GAME_STATE.username = username;
-            }
-
-            // Button press effect
-            this.tweens.add({
-                targets: [startButton, startText, startButtonBorder],
-                scale: 0.95,
-                duration: 100,
-                yoyo: true,
-                onComplete: () => {
-                    this.cameras.main.fade(500, 0, 0, 0);
-                    this.time.delayedCall(500, () => {
-                        this.scene.start('MainScene');
-                    });
-                }
-            });
-        });
-
-        // Leaderboard button
-        const leaderboardButton = this.add.rectangle(
-            this.cameras.main.width / 2,
-            430,
-            240,
-            50,
-            0x222288
-        ).setInteractive({ useHandCursor: true });
-
-        // Button border
-        this.add.rectangle(
-            this.cameras.main.width / 2,
-            430,
-            240,
-            50
-        ).setStrokeStyle(2, 0x6666cc);
-
-        // Button text
-        this.add.text(
-            this.cameras.main.width / 2,
-            430,
-            'VIEW LEADERBOARD',
-            {
-                fontFamily: 'Arial',
-                fontSize: 18,
-                color: '#ffffff'
-            }
-        ).setOrigin(0.5);
-
-        // Button hover effect
-        leaderboardButton.on('pointerover', () => {
-            leaderboardButton.fillColor = 0x3333aa;
-            leaderboardButton.scale = 1.05;
-        });
-
-        leaderboardButton.on('pointerout', () => {
-            leaderboardButton.fillColor = 0x222288;
-            leaderboardButton.scale = 1;
-        });
-
-        // Button click action
-        leaderboardButton.on('pointerdown', () => {
-            if (this.sound && this.cache.audio.exists('select')) {
-                this.sound.play('select', { volume: 0.5 });
-            }
+        // Create leaderboard button
+        this.createMenuButton(baseY + spacing, 'LEADERBOARD', 0x222288, () => {
             this.showLeaderboard();
         });
 
-        // High Score Display
+        // Create settings button
+        this.createMenuButton(baseY + spacing * 2, 'SETTINGS', 0x225588, () => {
+            this.showSettings();
+        });
+    }
+
+    createMenuButton(y, text, color, callback) {
+        // Button background with glow
+        const button = this.add.rectangle(
+            this.cameras.main.width / 2,
+            y,
+            280,
+            60,
+            color,
+            0.9
+        ).setInteractive({ useHandCursor: true });
+
+        // Add stroke and shadow for depth
+        button.setStrokeStyle(2, 0x8888ff);
+
+        // Button text
+        const buttonText = this.add.text(
+            button.x,
+            button.y,
+            text,
+            {
+                fontFamily: 'Arial',
+                fontSize: 24,
+                color: '#ffffff',
+                stroke: '#000033',
+                strokeThickness: 4
+            }
+        ).setOrigin(0.5);
+
+        // Button hover effect
+        button.on('pointerover', () => {
+            button.fillColor = 0x6666cc;
+            button.scale = 1.05;
+            buttonText.scale = 1.05;
+
+            // Add particle burst on hover
+            try {
+                const particles = this.add.particles(button.x, button.y, 'xp', {
+                    scale: { start: 0.2, end: 0 },
+                    speed: { min: 20, max: 50 },
+                    quantity: 10,
+                    lifespan: 500,
+                    alpha: { start: 0.5, end: 0 },
+                    blendMode: 'ADD'
+                });
+
+                // Destroy after emitting
+                this.time.delayedCall(100, () => particles.destroy());
+            } catch (e) {
+                console.warn("Particle effect failed:", e);
+            }
+        });
+
+        button.on('pointerout', () => {
+            button.fillColor = color;
+            button.scale = 1;
+            buttonText.scale = 1;
+        });
+
+        // Click effect
+        button.on('pointerdown', () => {
+            if (this.sound && this.cache.audio.exists('select')) {
+                this.sound.play('select', { volume: 0.5 });
+            }
+
+            this.tweens.add({
+                targets: [button, buttonText],
+                scale: 0.95,
+                duration: 100,
+                yoyo: true,
+                onComplete: callback
+            });
+        });
+
+        return button;
+    }
+
+    createInfoSection() {
+        const y = this.cameras.main.height - 80;
+
+        // High score display
         this.add.text(
             this.cameras.main.width / 2,
-            500,
-            'YOUR HIGH SCORE',
+            y - 40,
+            'HIGH SCORE',
             {
                 fontFamily: 'Arial',
                 fontSize: 16,
-                color: '#ffffff',
+                color: '#aaaaff',
                 align: 'center'
             }
         ).setOrigin(0.5);
 
         this.add.text(
             this.cameras.main.width / 2,
-            530,
+            y - 10,
             GAME_STATE.highScore.toString(),
             {
                 fontFamily: 'Arial',
@@ -240,34 +353,281 @@ class MenuScene extends Phaser.Scene {
             }
         ).setOrigin(0.5);
 
-        // Instructions
-        const instructions = this.add.text(
+        // Instructions and credits
+        this.add.text(
             this.cameras.main.width / 2,
-            600,
-            'Move: WASD or Arrow Keys\nAutomatically attack nearby enemies\nCollect XP to level up!',
+            this.cameras.main.height - 40,
+            'Move: WASD/Arrows or Mouse  •  Collect XP  •  Survive!',
             {
                 fontFamily: 'Arial',
-                fontSize: 16,
-                color: '#aaaaff',
+                fontSize: 14,
+                color: '#aaaaaa',
                 align: 'center'
             }
         ).setOrigin(0.5);
 
-        // Credits
         this.add.text(
             this.cameras.main.width / 2,
-            this.cameras.main.height - 30,
-            'Guardian Survivor - A Vampire Survivors-style game',
+            this.cameras.main.height - 20,
+            '© 2023 Guardian Survivor',
             {
                 fontFamily: 'Arial',
                 fontSize: 12,
-                color: '#888888',
+                color: '#666666',
                 align: 'center'
             }
         ).setOrigin(0.5);
+    }
 
-        // Fade in
-        this.cameras.main.fadeIn(1000);
+    startGame() {
+        // Save username
+        const inputElement = document.getElementById('username');
+        if (inputElement) {
+            const username = inputElement.value || 'Player';
+            localStorage.setItem('username', username);
+            GAME_STATE.username = username;
+        }
+
+        // Fade out and start game
+        this.cameras.main.fade(500, 0, 0, 0);
+        this.time.delayedCall(500, () => {
+            this.scene.start('MainScene');
+        });
+    }
+
+    showSettings() {
+        // Create settings menu
+        const panel = this.add.rectangle(
+            this.cameras.main.width / 2,
+            this.cameras.main.height / 2,
+            500,
+            400,
+            0x222244,
+            0.95
+        );
+        panel.setStrokeStyle(2, 0x4444aa);
+
+        // Title
+        const title = this.add.text(
+            this.cameras.main.width / 2,
+            panel.y - 160,
+            'SETTINGS',
+            {
+                fontFamily: 'Arial',
+                fontSize: 32,
+                color: '#ffffff',
+                stroke: '#000000',
+                strokeThickness: 4
+            }
+        ).setOrigin(0.5);
+
+        // Sound settings
+        const soundText = this.add.text(
+            panel.x - 150,
+            panel.y - 80,
+            'SOUND VOLUME:',
+            {
+                fontFamily: 'Arial',
+                fontSize: 20,
+                color: '#ffffff'
+            }
+        ).setOrigin(0, 0.5);
+
+        // Get current sound volume
+        const currentVolume = parseFloat(localStorage.getItem('gameVolume') || '0.5');
+
+        // Create volume slider
+        const sliderBg = this.add.rectangle(
+            panel.x + 80,
+            panel.y - 80,
+            200,
+            20,
+            0x000000
+        );
+        sliderBg.setStrokeStyle(2, 0x4444aa);
+
+        // Slider fill
+        const sliderFill = this.add.rectangle(
+            sliderBg.x - sliderBg.width / 2 + (sliderBg.width * currentVolume) / 2,
+            sliderBg.y,
+            sliderBg.width * currentVolume,
+            sliderBg.height,
+            0x4466cc
+        );
+        sliderFill.setOrigin(0.5);
+
+        // Slider handle
+        const handle = this.add.circle(
+            sliderBg.x - sliderBg.width / 2 + (sliderBg.width * currentVolume),
+            sliderBg.y,
+            15,
+            0x6688ff
+        );
+        handle.setInteractive({ draggable: true, useHandCursor: true });
+
+        // Handle drag events
+        handle.on('drag', (pointer, dragX) => {
+            // Constrain to slider bounds
+            const minX = sliderBg.x - sliderBg.width / 2;
+            const maxX = sliderBg.x + sliderBg.width / 2;
+
+            dragX = Phaser.Math.Clamp(dragX, minX, maxX);
+            handle.x = dragX;
+
+            // Calculate volume (0-1)
+            const volume = (dragX - minX) / sliderBg.width;
+
+            // Update slider fill
+            sliderFill.width = sliderBg.width * volume;
+            sliderFill.x = minX + sliderFill.width / 2;
+
+            // Save volume setting
+            localStorage.setItem('gameVolume', volume.toString());
+        });
+
+        // Control type toggle
+        const controlTypeText = this.add.text(
+            panel.x - 150,
+            panel.y,
+            'CONTROL TYPE:',
+            {
+                fontFamily: 'Arial',
+                fontSize: 20,
+                color: '#ffffff'
+            }
+        ).setOrigin(0, 0.5);
+
+        // Get current control type
+        const isMouseControl = localStorage.getItem('useMouseControl') === 'true';
+
+        // Create toggle button
+        const toggleBg = this.add.rectangle(
+            panel.x + 80,
+            panel.y,
+            200,
+            40,
+            0x000000
+        );
+        toggleBg.setStrokeStyle(2, 0x4444aa);
+
+        // Toggle options
+        const keyboardBtn = this.add.rectangle(
+            toggleBg.x - 50,
+            toggleBg.y,
+            90,
+            36,
+            isMouseControl ? 0x222244 : 0x4466cc
+        );
+        keyboardBtn.setInteractive({ useHandCursor: true });
+
+        const mouseBtn = this.add.rectangle(
+            toggleBg.x + 50,
+            toggleBg.y,
+            90,
+            36,
+            isMouseControl ? 0x4466cc : 0x222244
+        );
+        mouseBtn.setInteractive({ useHandCursor: true });
+
+        // Toggle text
+        this.add.text(
+            keyboardBtn.x,
+            keyboardBtn.y,
+            'KEYBOARD',
+            {
+                fontFamily: 'Arial',
+                fontSize: 14,
+                color: '#ffffff'
+            }
+        ).setOrigin(0.5);
+
+        this.add.text(
+            mouseBtn.x,
+            mouseBtn.y,
+            'MOUSE',
+            {
+                fontFamily: 'Arial',
+                fontSize: 14,
+                color: '#ffffff'
+            }
+        ).setOrigin(0.5);
+
+        // Toggle handlers
+        keyboardBtn.on('pointerdown', () => {
+            keyboardBtn.fillColor = 0x4466cc;
+            mouseBtn.fillColor = 0x222244;
+            localStorage.setItem('useMouseControl', 'false');
+
+            if (this.sound && this.cache.audio.exists('select')) {
+                this.sound.play('select', { volume: 0.3 });
+            }
+        });
+
+        mouseBtn.on('pointerdown', () => {
+            mouseBtn.fillColor = 0x4466cc;
+            keyboardBtn.fillColor = 0x222244;
+            localStorage.setItem('useMouseControl', 'true');
+
+            if (this.sound && this.cache.audio.exists('select')) {
+                this.sound.play('select', { volume: 0.3 });
+            }
+        });
+
+        // Close button
+        const closeButton = this.add.rectangle(
+            this.cameras.main.width / 2,
+            panel.y + 150,
+            200,
+            50,
+            0x444488
+        ).setInteractive({ useHandCursor: true });
+
+        const closeText = this.add.text(
+            this.cameras.main.width / 2,
+            panel.y + 150,
+            'CLOSE',
+            {
+                fontFamily: 'Arial',
+                fontSize: 20,
+                color: '#ffffff'
+            }
+        ).setOrigin(0.5);
+
+        // Close button hover effect
+        closeButton.on('pointerover', () => {
+            closeButton.fillColor = 0x5555aa;
+            closeButton.scale = 1.05;
+            closeText.scale = 1.05;
+        });
+
+        closeButton.on('pointerout', () => {
+            closeButton.fillColor = 0x444488;
+            closeButton.scale = 1;
+            closeText.scale = 1;
+        });
+
+        // Close button click handler
+        closeButton.on('pointerdown', () => {
+            if (this.sound && this.cache.audio.exists('select')) {
+                this.sound.play('select', { volume: 0.3 });
+            }
+
+            // Fade out and destroy panel
+            const elements = [
+                panel, title, soundText, sliderBg, sliderFill, handle,
+                controlTypeText, toggleBg, keyboardBtn, mouseBtn,
+                closeButton, closeText
+            ];
+
+            this.tweens.add({
+                targets: elements,
+                alpha: 0,
+                duration: 300,
+                onComplete: () => {
+                    elements.forEach(el => el.destroy());
+                }
+            });
+        });
     }
 
     update() {

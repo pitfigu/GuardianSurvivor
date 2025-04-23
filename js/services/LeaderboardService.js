@@ -1,4 +1,4 @@
-// Add new file: js/services/LeaderboardService.js
+// js/services/LeaderboardService.js
 class LeaderboardService {
     constructor() {
         this.localScores = this.getLocalScores();

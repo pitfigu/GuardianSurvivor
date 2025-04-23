@@ -44,6 +44,12 @@ class Player {
         this.invulnerableUntil = 0;
         this.damageFlashing = false;
 
+        // Movement properties
+        this.useMouseControl = true; // Set to true to enable mouse control
+        this.targetPosition = new Phaser.Math.Vector2(x, y);
+        this.movementThreshold = 5; // Minimum distance to move
+        this.isLocked = false; // Used to lock position during upgrades
+
         // Player stats
         this.health = GAME_SETTINGS.playerHealth;
         this.maxHealth = GAME_SETTINGS.playerHealth;
@@ -52,10 +58,42 @@ class Player {
         // Weapons array
         this.weapons = [];
         this.addWeapon(new BasicWeapon(scene, this));
+
+        // Setup mouse control if enabled
+        if (this.useMouseControl) {
+            this.setupMouseControl();
+        }
+
+        // Add small light particles around player
+        try {
+            const particles = scene.add.particles(x, y, 'xp', {
+                scale: { start: 0.2, end: 0 },
+                speed: { min: 10, max: 20 },
+                quantity: 1,
+                frequency: 200,
+                lifespan: 1000,
+                alpha: { start: 0.5, end: 0 },
+                blendMode: 'ADD'
+            });
+            particles.setDepth(11);
+            this.particles = particles;
+        } catch (e) {
+            console.warn("Could not create player particles", e);
+        }
     }
 
     update(time, delta) {
-        this.handleMovement();
+        if (!this.isLocked) {
+            if (this.useMouseControl) {
+                this.handleMouseMovement();
+            } else {
+                this.handleKeyboardMovement();
+            }
+        } else {
+            // When locked, make sure the player doesn't move
+            this.sprite.setVelocity(0, 0);
+        }
+
         this.updateWeapons(time, delta);
 
         // Update shadow position
@@ -76,7 +114,62 @@ class Player {
         }
     }
 
-    handleMovement() {
+    setupMouseControl() {
+        // Setup pointer move tracking
+        this.scene.input.on('pointermove', (pointer) => {
+            if (this.scene.paused || this.isLocked) return;
+
+            // Convert screen position to world position
+            const worldX = pointer.x + this.scene.cameras.main.scrollX;
+            const worldY = pointer.y + this.scene.cameras.main.scrollY;
+
+            // Update target position
+            this.targetPosition.x = worldX;
+            this.targetPosition.y = worldY;
+        });
+
+        // Also allow clicking to set target
+        this.scene.input.on('pointerdown', (pointer) => {
+            if (this.scene.paused || this.isLocked) return;
+
+            // Convert screen position to world position
+            const worldX = pointer.x + this.scene.cameras.main.scrollX;
+            const worldY = pointer.y + this.scene.cameras.main.scrollY;
+
+            // Update target position
+            this.targetPosition.x = worldX;
+            this.targetPosition.y = worldY;
+        });
+    }
+
+    handleMouseMovement() {
+        // Calculate distance to target
+        const distance = Phaser.Math.Distance.Between(
+            this.sprite.x, this.sprite.y,
+            this.targetPosition.x, this.targetPosition.y
+        );
+
+        // Only move if we're far enough from the target
+        if (distance > this.movementThreshold) {
+            // Calculate direction to target
+            const angle = Phaser.Math.Angle.Between(
+                this.sprite.x, this.sprite.y,
+                this.targetPosition.x, this.targetPosition.y
+            );
+
+            // Set velocity based on direction and player speed
+            this.sprite.setVelocityX(Math.cos(angle) * this.speed);
+            this.sprite.setVelocityY(Math.sin(angle) * this.speed);
+
+            // Face direction of movement (optional)
+            this.sprite.rotation = angle + Math.PI / 2; // Adjust based on sprite orientation
+        } else {
+            // Close enough to target, stop moving
+            this.sprite.setVelocity(0);
+        }
+    }
+
+    handleKeyboardMovement() {
         // Get references to keyboard input
         const { cursors } = this.scene;
         const wasd = this.scene.wasd;
@@ -118,6 +211,9 @@ class Player {
     }
 
     takeDamage(amount, enemyId = null) {
+        // Skip damage entirely if player is locked (during level up)
+        if (this.isLocked) return false;
+
         const currentTime = this.scene.time.now;
 
         // Skip damage if player is invulnerable or the enemy is on cooldown
@@ -189,6 +285,17 @@ class Player {
         return true; // Damage was applied
     }
 
+    // Lock player position (used during level-up or pause)
+    lockPosition() {
+        this.isLocked = true;
+        this.sprite.setVelocity(0, 0);
+    }
+
+    // Unlock player position
+    unlockPosition() {
+        this.isLocked = false;
+    }
+
     // Add this cleanup method
     cleanupCooldowns() {
         const currentTime = this.scene.time.now;
@@ -202,15 +309,63 @@ class Player {
     heal(amount) {
         this.health += amount;
         this.health = Math.min(this.maxHealth, this.health);
+
+        // Visual indicator for healing
+        const healText = this.scene.add.text(
+            this.sprite.x, this.sprite.y - 20,
+            `+${amount} HP`,
+            { fontSize: '16px', color: '#00ff00', stroke: '#000000', strokeThickness: 3 }
+        );
+        healText.setOrigin(0.5);
+
+        this.scene.tweens.add({
+            targets: healText,
+            y: healText.y - 30,
+            alpha: 0,
+            duration: 800,
+            onComplete: () => healText.destroy()
+        });
     }
 
     upgradeSpeed(amount) {
         this.speed += amount;
+
+        // Visual indicator for speed upgrade
+        const speedText = this.scene.add.text(
+            this.sprite.x, this.sprite.y - 20,
+            `Speed +${amount}`,
+            { fontSize: '16px', color: '#00ffff', stroke: '#000000', strokeThickness: 3 }
+        );
+        speedText.setOrigin(0.5);
+
+        this.scene.tweens.add({
+            targets: speedText,
+            y: speedText.y - 30,
+            alpha: 0,
+            duration: 800,
+            onComplete: () => speedText.destroy()
+        });
     }
 
     upgradeMaxHealth(amount) {
         this.maxHealth += amount;
         this.health += amount; // Also heal when max health increases
+
+        // Visual indicator for health upgrade
+        const healthText = this.scene.add.text(
+            this.sprite.x, this.sprite.y - 20,
+            `Max HP +${amount}`,
+            { fontSize: '16px', color: '#ff88ff', stroke: '#000000', strokeThickness: 3 }
+        );
+        healthText.setOrigin(0.5);
+
+        this.scene.tweens.add({
+            targets: healthText,
+            y: healthText.y - 30,
+            alpha: 0,
+            duration: 800,
+            onComplete: () => healthText.destroy()
+        });
     }
 
     // Method to set up collision detection for all weapons
@@ -233,5 +388,11 @@ class Player {
                 weapon.collisionsSetup = true;
             }
         });
+    }
+
+    // Toggle between mouse and keyboard control
+    toggleControlMethod() {
+        this.useMouseControl = !this.useMouseControl;
+        return this.useMouseControl;
     }
 }

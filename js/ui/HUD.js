@@ -147,6 +147,123 @@ class HUD {
         this.levelText.setDepth(10);
     }
 
+    createControlToggle() {
+        const isMouseControl = localStorage.getItem('useMouseControl') === 'true';
+
+        const toggleBtn = this.scene.add.rectangle(
+            this.scene.game.config.width - 40,
+            80,
+            30,
+            30,
+            isMouseControl ? 0x22aa22 : 0x2222aa,
+            0.8
+        );
+        toggleBtn.setStrokeStyle(2, 0xffffff);
+        toggleBtn.setScrollFactor(0);
+        toggleBtn.setDepth(100);
+        toggleBtn.setInteractive({ useHandCursor: true });
+
+        // Add icon based on current control scheme
+        const icon = isMouseControl ?
+            this.createMouseIcon(toggleBtn.x, toggleBtn.y) :
+            this.createKeyboardIcon(toggleBtn.x, toggleBtn.y);
+
+        // Add click handler
+        toggleBtn.on('pointerdown', () => {
+            // Toggle control scheme
+            const isNowMouseControl = this.scene.player.toggleControlScheme();
+
+            // Update button color
+            toggleBtn.fillColor = isNowMouseControl ? 0x22aa22 : 0x2222aa;
+
+            // Update icon
+            icon.destroy();
+            if (isNowMouseControl) {
+                this.createMouseIcon(toggleBtn.x, toggleBtn.y);
+            } else {
+                this.createKeyboardIcon(toggleBtn.x, toggleBtn.y);
+            }
+
+            // Play sound
+            if (this.scene.sound && this.scene.cache.audio.exists('select')) {
+                this.scene.sound.play('select', { volume: 0.3 });
+            }
+
+            // Show toast message
+            if (this.scene.showToastMessage) {
+                this.scene.showToastMessage(
+                    isNowMouseControl ? 'Mouse Control Enabled' : 'Keyboard Control Enabled'
+                );
+            }
+        });
+
+        return toggleBtn;
+    }
+
+    createMouseIcon(x, y) {
+        const group = this.scene.add.group();
+
+        // Mouse body
+        const body = this.scene.add.ellipse(x, y, 14, 20, 0xffffff);
+        body.setScrollFactor(0);
+        body.setDepth(101);
+
+        // Mouse button line
+        const line = this.scene.add.line(x, y - 4, 0, 0, 14, 0, 0xffffff);
+        line.setScrollFactor(0);
+        line.setDepth(101);
+
+        group.add(body);
+        group.add(line);
+        return group;
+    }
+
+    createKeyboardIcon(x, y) {
+        const group = this.scene.add.group();
+
+        // Arrow keys (simplified)
+        const upArrow = this.scene.add.triangle(
+            x, y - 8,
+            0, 6, 6, -6, 12, 6,
+            0xffffff
+        );
+
+        const leftArrow = this.scene.add.triangle(
+            x - 8, y + 4,
+            6, 0, -6, 6, -6, -6,
+            0xffffff
+        );
+
+        const rightArrow = this.scene.add.triangle(
+            x + 8, y + 4,
+            -6, 0, 6, 6, 6, -6,
+            0xffffff
+        );
+
+        const downArrow = this.scene.add.triangle(
+            x, y + 8,
+            0, -6, 6, 6, -6, 6,
+            0xffffff
+        );
+
+        upArrow.setScrollFactor(0);
+        leftArrow.setScrollFactor(0);
+        rightArrow.setScrollFactor(0);
+        downArrow.setScrollFactor(0);
+
+        upArrow.setDepth(101);
+        leftArrow.setDepth(101);
+        rightArrow.setDepth(101);
+        downArrow.setDepth(101);
+
+        group.add(upArrow);
+        group.add(leftArrow);
+        group.add(rightArrow);
+        group.add(downArrow);
+
+        return group;
+    }
+
     update() {
         // Update health bar
         const healthPercent = this.scene.player.health / this.scene.player.maxHealth;

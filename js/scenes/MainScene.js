@@ -43,6 +43,8 @@ class MainScene extends Phaser.Scene {
         // Create HUD
         this.hud = new HUD(this);
 
+        this.pauseButtonElements = this.createPauseButton();
+
         // Create level up UI
         this.levelUpUI = new LevelUpUI(this);
 
@@ -246,6 +248,52 @@ class MainScene extends Phaser.Scene {
         this.minimap = {
             x, y, size: minimapSize, scale: minimapScale
         };
+    }
+
+    // Add pause button to HUD
+    createPauseButton() {
+        const pauseButton = this.add.circle(
+            this.game.config.width - 40,
+            40,
+            20,
+            0x333366,
+            0.8
+        );
+        pauseButton.setStrokeStyle(2, 0x4466cc);
+        pauseButton.setScrollFactor(0);
+        pauseButton.setDepth(100);
+        pauseButton.setInteractive({ useHandCursor: true });
+
+        // Add pause icon
+        const bar1 = this.add.rectangle(pauseButton.x - 5, pauseButton.y, 4, 14, 0xffffff);
+        const bar2 = this.add.rectangle(pauseButton.x + 5, pauseButton.y, 4, 14, 0xffffff);
+        bar1.setScrollFactor(0);
+        bar2.setScrollFactor(0);
+        bar1.setDepth(101);
+        bar2.setDepth(101);
+
+        // Add hover effect
+        pauseButton.on('pointerover', () => {
+            pauseButton.setScale(1.1);
+            bar1.setScale(1.1);
+            bar2.setScale(1.1);
+        });
+
+        pauseButton.on('pointerout', () => {
+            pauseButton.setScale(1);
+            bar1.setScale(1);
+            bar2.setScale(1);
+        });
+
+        // Add click handler
+        pauseButton.on('pointerdown', () => {
+            if (this.sound && this.cache.audio.exists('select')) {
+                this.sound.play('select', { volume: 0.3 });
+            }
+            this.togglePause();
+        });
+
+        return { pauseButton, bar1, bar2 };
     }
 
     // Update minimap in the update method

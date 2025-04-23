@@ -122,52 +122,395 @@ class Enemy {
             case 'fast':
                 this.health = 15;
                 this.speed = 120;
-                this.damage = 5;
+                this.damage = GAME_SETTINGS.enemyDamage.fast || 5;
                 this.points = 15;
                 this.xpValue = 2;
                 this.sprite.setTint(0x00ffff);
                 break;
+
             case 'tank':
                 this.health = 50;
                 this.speed = 50;
-                this.damage = 10;
+                this.damage = GAME_SETTINGS.enemyDamage.tank || 10;
                 this.points = 25;
                 this.xpValue = 3;
                 this.sprite.setTint(0xff0000);
                 break;
+
+            case 'shooter':
+                this.health = 25;
+                this.speed = 60;
+                this.damage = GAME_SETTINGS.enemyDamage.shooter || 8;
+                this.points = 30;
+                this.xpValue = 3;
+                this.sprite.setTint(0xff00ff);
+                this.rangedAttack = true;
+                this.attackRange = 200;
+                this.attackCooldown = 2000;
+                this.lastAttack = 0;
+                break;
+
+            case 'explosive':
+                this.health = 40;
+                this.speed = 40;
+                this.damage = GAME_SETTINGS.enemyDamage.explosive || 20;
+                this.points = 35;
+                this.xpValue = 4;
+                this.sprite.setTint(0xff6600);
+                this.explodeOnDeath = true;
+                this.explosionRadius = 100;
+                break;
+
+            case 'boss':
+                this.health = 500;
+                this.speed = 30;
+                this.damage = GAME_SETTINGS.enemyDamage.boss || 20;
+                this.points = 200;
+                this.xpValue = 20;
+                this.sprite.setScale(2.5);
+                this.sprite.setTint(0xaa00aa);
+                // Boss can use multiple attack patterns
+                this.attackPatterns = ['charge', 'summon', 'ranged'];
+                this.currentPattern = 'normal';
+                this.patternCooldown = 5000;
+                this.lastPatternChange = 0;
+                break;
+
             case 'basic':
             default:
                 this.health = 30;
                 this.speed = 70;
-                this.damage = 10;
+                this.damage = GAME_SETTINGS.enemyDamage.basic || 10;
                 this.points = 10;
                 this.xpValue = 1;
                 break;
         }
     }
 
-    update() {
+    update(time, delta) {
         const player = this.scene.player;
 
-        // Move toward player
-        if (player && player.sprite.active) {
-            const direction = new Phaser.Math.Vector2(
-                player.sprite.x - this.sprite.x,
-                player.sprite.y - this.sprite.y
-            ).normalize();
+        // Skip if no player or game is paused
+        if (!player || !player.sprite || !player.sprite.active || this.scene.paused) {
+            return;
+        }
 
-            this.sprite.setVelocity(
-                direction.x * this.speed,
-                direction.y * this.speed
+        // Base movement toward player
+        const direction = new Phaser.Math.Vector2(
+            player.sprite.x - this.sprite.x,
+            player.sprite.y - this.sprite.y
+        ).normalize();
+
+        const distToPlayer = Phaser.Math.Distance.Between(
+            this.sprite.x, this.sprite.y,
+            player.sprite.x, player.sprite.y
+        );
+
+        // Handle different enemy types
+        switch (this.type) {
+            case 'shooter':
+                // Stay at range and shoot
+                if (distToPlayer < this.attackRange) {
+                    // Stop and attack
+                    this.sprite.setVelocity(0, 0);
+
+                    // Attack if cooldown elapsed
+                    if (time > this.lastAttack + this.attackCooldown) {
+                        this.rangedAttack(player);
+                        this.lastAttack = time;
+                    }
+                } else {
+                    // Move toward player
+                    this.sprite.setVelocity(
+                        direction.x * this.speed,
+                        direction.y * this.speed
+                    );
+                }
+                break;
+
+            case 'boss':
+                // Boss uses attack patterns
+                if (time > this.lastPatternChange + this.patternCooldown) {
+                    this.changeAttackPattern();
+                    this.lastPatternChange = time;
+                }
+
+                // Handle current pattern
+                switch (this.currentPattern) {
+                    case 'charge':
+                        // Charge at player with increased speed
+                        this.sprite.setVelocity(
+                            direction.x * this.speed * 2,
+                            direction.y * this.speed * 2
+                        );
+                        break;
+
+                    case 'summon':
+                        // Summon minions and move slowly
+                        this.sprite.setVelocity(
+                            direction.x * this.speed * 0.5,
+                            direction.y * this.speed * 0.5
+                        );
+
+                        // Try to summon every 2 seconds
+                        if (time % 2000 < 20) {
+                            this.summonMinions();
+                        }
+                        break;
+
+                    case 'ranged':
+                        // Attack from range
+                        if (time % 1000 < 20) {
+                            this.bossRangedAttack();
+                        }
+
+                        // Move at medium speed
+                        this.sprite.setVelocity(
+                            direction.x * this.speed * 0.8,
+                            direction.y * this.speed * 0.8
+                        );
+                        break;
+
+                    default:
+                        // Normal movement
+                        this.sprite.setVelocity(
+                            direction.x * this.speed,
+                            direction.y * this.speed
+                        );
+                        break;
+                }
+                break;
+
+            default:
+                // Standard movement for other enemy types
+                this.sprite.setVelocity(
+                    direction.x * this.speed,
+                    direction.y * this.speed
+                );
+                break;
+        }
+
+        // Update shadow position
+        if (this.shadow) {
+            this.shadow.x = this.sprite.x;
+            this.shadow.y = this.sprite.y + 10;
+        }
+
+        // Update aura/trail position
+        if (this.aura) {
+            this.aura.x = this.sprite.x;
+            this.aura.y = this.sprite.y;
+        }
+
+        if (this.trail) {
+            this.trail.setPosition(this.sprite.x, this.sprite.y);
+        }
+
+        // Rotate sprite to face player
+        this.sprite.rotation = Math.atan2(direction.y, direction.x);
+    }
+
+    // Add methods for new enemy behaviors
+    rangedAttack(player) {
+        // Create a projectile
+        const projectile = this.scene.physics.add.sprite(
+            this.sprite.x, this.sprite.y, 'projectile'
+        );
+        projectile.setTint(0xff00ff);
+        projectile.setData('damage', this.damage / 2);
+        projectile.setData('enemyProjectile', true);
+
+        // Calculate direction to player
+        const direction = new Phaser.Math.Vector2(
+            player.sprite.x - this.sprite.x,
+            player.sprite.y - this.sprite.y
+        ).normalize();
+
+        // Set velocity
+        const speed = 150;
+        projectile.setVelocity(
+            direction.x * speed,
+            direction.y * speed
+        );
+
+        // Rotate to face direction
+        projectile.rotation = Math.atan2(direction.y, direction.x);
+
+        // Add to enemy projectiles group
+        if (this.scene.enemyManager.enemyProjectiles) {
+            this.scene.enemyManager.enemyProjectiles.add(projectile);
+        }
+
+        // Destroy after time
+        this.scene.time.addEvent({
+            delay: 3000,
+            callback: () => {
+                if (projectile.active) projectile.destroy();
+            }
+        });
+    }
+
+    bossRangedAttack() {
+        // Fire multiple projectiles in a spread
+        const numberOfProjectiles = 5;
+        const spreadAngle = 90; // degrees
+        const baseAngle = Phaser.Math.Angle.Between(
+            this.sprite.x, this.sprite.y,
+            this.scene.player.sprite.x, this.scene.player.sprite.y
+        );
+
+        for (let i = 0; i < numberOfProjectiles; i++) {
+            // Calculate angle for this projectile
+            const angle = baseAngle +
+                Phaser.Math.DegToRad(spreadAngle / 2 - (spreadAngle / (numberOfProjectiles - 1)) * i);
+
+            // Create projectile
+            const projectile = this.scene.physics.add.sprite(
+                this.sprite.x, this.sprite.y, 'projectile'
+            );
+            projectile.setTint(0xaa00aa);
+            projectile.setScale(1.5);
+            projectile.setData('damage', this.damage / 3);
+            projectile.setData('enemyProjectile', true);
+
+            // Set velocity based on angle
+            const speed = 120;
+            projectile.setVelocity(
+                Math.cos(angle) * speed,
+                Math.sin(angle) * speed
             );
 
-            // Update shadow position
-            if (this.shadow) {
-                this.shadow.x = this.sprite.x;
-                this.shadow.y = this.sprite.y + 20;
+            // Rotate to face direction
+            projectile.rotation = angle;
+
+            // Add to enemy projectiles group
+            if (this.scene.enemyManager.enemyProjectiles) {
+                this.scene.enemyManager.enemyProjectiles.add(projectile);
             }
-        } else {
-            this.sprite.setVelocity(0);
+
+            // Destroy after time
+            this.scene.time.addEvent({
+                delay: 3000,
+                callback: () => {
+                    if (projectile.active) projectile.destroy();
+                }
+            });
+        }
+    }
+
+    summonMinions() {
+        // Try to spawn 2-3 basic enemies near boss
+        const count = 2 + Math.floor(Math.random() * 2);
+
+        for (let i = 0; i < count; i++) {
+            // Calculate position around boss
+            const angle = Math.random() * Math.PI * 2;
+            const distance = 50 + Math.random() * 30;
+            const x = this.sprite.x + Math.cos(angle) * distance;
+            const y = this.sprite.y + Math.sin(angle) * distance;
+
+            // Create basic enemy
+            this.scene.enemyManager.createEnemyAt(x, y, 'basic');
+        }
+
+        // Visual effect for summoning
+        const summonEffect = this.scene.add.circle(
+            this.sprite.x, this.sprite.y,
+            80, 0x8800ff, 0.4
+        );
+
+        this.scene.tweens.add({
+            targets: summonEffect,
+            scale: 1.5,
+            alpha: 0,
+            duration: 800,
+            onComplete: () => summonEffect.destroy()
+        });
+    }
+
+    changeAttackPattern() {
+        // Select a random attack pattern
+        const patterns = this.attackPatterns || ['normal'];
+        this.currentPattern = Phaser.Utils.Array.GetRandom(patterns);
+
+        // Visual indicator of pattern change
+        const indicator = this.scene.add.text(
+            this.sprite.x,
+            this.sprite.y - 40,
+            `${this.currentPattern.toUpperCase()}!`,
+            {
+                fontSize: '18px',
+                color: '#ff00ff',
+                stroke: '#000000',
+                strokeThickness: 3
+            }
+        );
+        indicator.setOrigin(0.5);
+
+        this.scene.tweens.add({
+            targets: indicator,
+            y: indicator.y - 30,
+            alpha: 0,
+            duration: 1500,
+            onComplete: () => indicator.destroy()
+        });
+    }
+
+    // Explosive enemy death
+    explode() {
+        // Create explosion effect
+        const explosion = this.scene.add.circle(
+            this.sprite.x, this.sprite.y,
+            this.explosionRadius, 0xff6600, 0.6
+        );
+
+        // Play explosion sound
+        if (this.scene.sound && this.scene.cache.audio.exists('hit')) {
+            this.scene.sound.play('hit', { volume: 0.6, rate: 0.7 });
+        }
+
+        // Animate explosion
+        this.scene.tweens.add({
+            targets: explosion,
+            scale: 1.3,
+            alpha: 0,
+            duration: 500,
+            onComplete: () => explosion.destroy()
+        });
+
+        // Damage player if in range
+        if (this.scene.player) {
+            const distToPlayer = Phaser.Math.Distance.Between(
+                this.sprite.x, this.sprite.y,
+                this.scene.player.sprite.x, this.scene.player.sprite.y
+            );
+
+            if (distToPlayer <= this.explosionRadius) {
+                // Calculate damage based on distance
+                const damageMultiplier = 1 - (distToPlayer / this.explosionRadius) * 0.7;
+                const damage = Math.ceil(this.damage * damageMultiplier);
+
+                this.scene.player.takeDamage(damage);
+            }
+        }
+
+        // Damage other enemies in range (reduced damage)
+        const enemies = this.scene.enemyManager.enemies.getChildren();
+        for (const enemySprite of enemies) {
+            const enemy = enemySprite.getData('ref');
+            if (!enemy || enemy === this) continue;
+
+            const distance = Phaser.Math.Distance.Between(
+                this.sprite.x, this.sprite.y,
+                enemySprite.x, enemySprite.y
+            );
+
+            if (distance <= this.explosionRadius) {
+                const damageMultiplier = 0.5 * (1 - (distance / this.explosionRadius));
+                const damage = Math.ceil(this.damage * damageMultiplier);
+
+                enemy.takeDamage(damage);
+            }
         }
     }
 

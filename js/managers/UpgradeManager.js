@@ -9,16 +9,21 @@ class UpgradeManager {
             // Weapon unlocks
             { id: 'unlockArea', name: 'Area Attack', description: 'Damages enemies in an area around you', type: 'weapon', apply: this.unlockAreaWeapon.bind(this) },
             { id: 'unlockProjectile', name: 'Multi Projectile', description: 'Fires multiple projectiles in a spread', type: 'weapon', apply: this.unlockProjectileWeapon.bind(this) },
+            { id: 'unlockLaser', name: 'Laser Beam', description: 'Fires a penetrating laser beam', type: 'weapon', apply: this.unlockLaserWeapon.bind(this) },
+            { id: 'unlockBomb', name: 'Time Bomb', description: 'Deploys bombs that explode after a delay', type: 'weapon', apply: this.unlockBombWeapon.bind(this) },
 
             // Weapon upgrades
             { id: 'weaponDamage', name: 'Weapon Damage +30%', description: 'Increases all weapon damage', type: 'weaponUpgrade', apply: this.upgradeWeaponDamage.bind(this) },
             { id: 'weaponSpeed', name: 'Attack Speed +20%', description: 'Decreases weapon cooldown', type: 'weaponUpgrade', apply: this.upgradeWeaponSpeed.bind(this) },
             { id: 'weaponLevel', name: 'Weapon Level Up', description: 'Improves a random weapon', type: 'weaponUpgrade', apply: this.upgradeWeaponLevel.bind(this) },
+            { id: 'weaponRange', name: 'Weapon Range +25%', description: 'Increases attack distance', type: 'weaponUpgrade', apply: this.upgradeWeaponRange.bind(this) },
 
             // Player upgrades
             { id: 'playerSpeed', name: 'Movement Speed +20%', description: 'Move faster', type: 'player', apply: this.upgradePlayerSpeed.bind(this) },
             { id: 'playerHealth', name: 'Max Health +30', description: 'Increase maximum health', type: 'player', apply: this.upgradePlayerHealth.bind(this) },
             { id: 'playerHeal', name: 'Full Heal', description: 'Restore all health', type: 'player', apply: this.healPlayer.bind(this) },
+            { id: 'playerArmor', name: 'Damage Reduction', description: 'Take 15% less damage', type: 'player', apply: this.upgradePlayerArmor.bind(this) },
+            { id: 'playerRegeneration', name: 'Health Regen', description: 'Slowly regenerate health', type: 'player', apply: this.addPlayerRegeneration.bind(this) },
         ];
     }
 
@@ -58,6 +63,22 @@ class UpgradeManager {
         }
     }
 
+    unlockLaserWeapon() {
+        if (!this.player.weapons.some(w => w instanceof LaserWeapon)) {
+            this.player.addWeapon(new LaserWeapon(this.scene, this.player));
+        } else {
+            this.upgradeSpecificWeapon(LaserWeapon);
+        }
+    }
+
+    unlockBombWeapon() {
+        if (!this.player.weapons.some(w => w instanceof BombWeapon)) {
+            this.player.addWeapon(new BombWeapon(this.scene, this.player));
+        } else {
+            this.upgradeSpecificWeapon(BombWeapon);
+        }
+    }
+
     // Weapon upgrade methods
     upgradeWeaponDamage() {
         this.player.weapons.forEach(weapon => {
@@ -82,6 +103,55 @@ class UpgradeManager {
         if (weapon) {
             weapon.upgradeLevel();
         }
+    }
+
+    upgradeWeaponRange() {
+        this.player.weapons.forEach(weapon => {
+            if (weapon.range) {
+                weapon.range = Math.floor(weapon.range * 1.25); // +25%
+            }
+        });
+    }
+
+    upgradePlayerArmor() {
+        // Initialize damage reduction if not set
+        if (typeof this.player.damageReduction !== 'number') {
+            this.player.damageReduction = 0;
+        }
+
+        // Add 15% damage reduction (stacks multiplicatively)
+        this.player.damageReduction += 0.15;
+
+        // Cap at 75% reduction
+        if (this.player.damageReduction > 0.75) {
+            this.player.damageReduction = 0.75;
+        }
+    }
+
+    addPlayerRegeneration() {
+        // Initialize regen if not set
+        if (typeof this.player.healthRegen !== 'number') {
+            this.player.healthRegen = 0;
+
+            // Start regen timer
+            this.scene.time.addEvent({
+                delay: 1000,
+                callback: () => {
+                    if (this.player.healthRegen > 0 &&
+                        this.player.health < this.player.maxHealth) {
+                        this.player.health = Math.min(
+                            this.player.health + this.player.healthRegen,
+                            this.player.maxHealth
+                        );
+                    }
+                },
+                callbackScope: this,
+                loop: true
+            });
+        }
+
+        // Add 1 HP per second regen
+        this.player.healthRegen += 1;
     }
 
     // Player upgrade methods

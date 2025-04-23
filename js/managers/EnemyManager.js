@@ -17,6 +17,10 @@ class EnemyManager {
         // Spawn rate and difficulty
         this.spawnRate = GAME_SETTINGS.baseEnemySpawnRate;
         this.difficulty = 1;
+        this.enemyTypes = ['basic', 'fast', 'tank'];
+
+        // Advanced enemy types unlocked at higher difficulties
+        this.advancedEnemyTypes = ['bomber', 'teleporter', 'elite'];
 
         // Start spawning enemies
         this.startSpawning();
@@ -52,7 +56,7 @@ class EnemyManager {
         }
 
         // Calculate spawn position further away from player
-        const spawnDistance = 100; // Minimum distance from screen edge
+        const spawnDistance = 150; // Increased distance from screen edge
         const { width, height } = this.scene.sys.game.config;
         let x, y;
 
@@ -84,29 +88,14 @@ class EnemyManager {
 
         // Ensure minimum distance from player
         const distToPlayer = Phaser.Math.Distance.Between(x, y, playerX, playerY);
-        if (distToPlayer < 200) {
+        if (distToPlayer < 250) { // Increased minimum distance
             // Try again if too close to player
             this.spawnEnemy();
             return;
         }
 
         // Choose enemy type based on difficulty and randomness
-        const roll = Math.random();
-        let type = 'basic';
-
-        if (this.difficulty >= 5) {
-            // Higher difficulties have more variety
-            if (roll < 0.15) {
-                type = 'tank';
-            } else if (roll < 0.45) {
-                type = 'fast';
-            }
-        } else if (this.difficulty >= 2) {
-            // Medium difficulty - introduce fast enemies
-            if (roll < 0.30) {
-                type = 'fast';
-            }
-        }
+        let type = this.selectEnemyType();
 
         // Create enemy and add to group
         const enemy = new Enemy(this.scene, x, y, type);
@@ -125,7 +114,10 @@ class EnemyManager {
                 Math.ceil(dynamicEnemyCap / 10)
             );
 
-            for (let i = 0; i < waveSize; i++) {
+            // Limit wave size based on difficulty
+            const actualWaveSize = Math.min(waveSize, Math.floor(this.difficulty / 2));
+
+            for (let i = 0; i < actualWaveSize; i++) {
                 this.scene.time.delayedCall(i * 200, () => {
                     if (this.scene.scene.isActive('MainScene')) {
                         this.spawnEnemy();
@@ -135,8 +127,58 @@ class EnemyManager {
         }
     }
 
+    // Select enemy type based on difficulty
+    selectEnemyType() {
+        const roll = Math.random();
+        const difficultyLevel = Math.floor(this.difficulty);
+
+        // Advanced enemies at higher difficulties
+        if (difficultyLevel >= 10) {
+            // High difficulty - include all enemy types
+            if (roll < 0.05) return 'elite'; // Very rare
+            if (roll < 0.10) return 'teleporter'; // Rare
+            if (roll < 0.20) return 'bomber'; // Uncommon
+            if (roll < 0.30) return 'tank'; // Common
+            if (roll < 0.60) return 'fast'; // Common
+            return 'basic'; // Most common
+        }
+        else if (difficultyLevel >= 7) {
+            // Medium-high difficulty - introduce teleporter and bomber
+            if (roll < 0.05) return 'teleporter';
+            if (roll < 0.15) return 'bomber';
+            if (roll < 0.30) return 'tank';
+            if (roll < 0.60) return 'fast';
+            return 'basic';
+        }
+        else if (difficultyLevel >= 5) {
+            // Medium difficulty - introduce bomber
+            if (roll < 0.10) return 'bomber';
+            if (roll < 0.25) return 'tank';
+            if (roll < 0.50) return 'fast';
+            return 'basic';
+        }
+        else if (difficultyLevel >= 3) {
+            // Low-medium difficulty - basic, fast and tanks
+            if (roll < 0.15) return 'tank';
+            if (roll < 0.40) return 'fast';
+            return 'basic';
+        }
+        else if (difficultyLevel >= 2) {
+            // Low difficulty - mostly basic with some fast
+            if (roll < 0.30) return 'fast';
+            return 'basic';
+        }
+        else {
+            // Very low difficulty - just basic enemies
+            return 'basic';
+        }
+    }
+
     increaseDifficulty() {
         this.difficulty += 0.5;
+
+        // Show difficulty increase notification
+        this.scene.showToastMessage(`Difficulty increased to ${Math.floor(this.difficulty)}!`);
 
         // Make enemies spawn faster but respect the minimum value
         this.spawnRate *= GAME_SETTINGS.difficultyScaling;
@@ -165,9 +207,20 @@ class EnemyManager {
         if (Math.floor(this.difficulty) % GAME_SETTINGS.restPeriodFrequency === 0) {
             this.startRestPeriod();
         }
+
+        // Introduce new enemy types at specific difficulty milestones
+        if (Math.floor(this.difficulty) === 5) {
+            this.scene.showToastMessage("New enemy type: Bomber!", 3000);
+        }
+        if (Math.floor(this.difficulty) === 7) {
+            this.scene.showToastMessage("New enemy type: Teleporter!", 3000);
+        }
+        if (Math.floor(this.difficulty) === 10) {
+            this.scene.showToastMessage("New enemy type: Elite!", 3000);
+        }
     }
 
-    // Add method for rest periods
+    // Start a rest period
     startRestPeriod() {
         // Store original spawn rate
         const originalSpawnRate = this.spawnRate;
@@ -181,11 +234,14 @@ class EnemyManager {
             loop: true
         });
 
+        // Rest period duration from settings
+        const restDuration = GAME_SETTINGS.restPeriodDuration || 15000;
+
         // Show "Rest period" message with countdown
         const restText = this.scene.add.text(
             this.scene.game.config.width / 2,
             100,
-            'REST PERIOD: 15s',
+            `REST PERIOD: ${Math.floor(restDuration / 1000)}s`,
             {
                 fontSize: '32px',
                 color: '#00ff00',
@@ -249,7 +305,7 @@ class EnemyManager {
         }
 
         // Add countdown
-        let timeLeft = GAME_SETTINGS.restPeriodDuration / 1000;
+        let timeLeft = restDuration / 1000;
         const countdownInterval = setInterval(() => {
             timeLeft--;
             if (timeLeft > 0 && restText && restText.active) {
@@ -260,7 +316,7 @@ class EnemyManager {
         }, 1000);
 
         // Reset back to normal spawn rate after rest period
-        this.scene.time.delayedCall(GAME_SETTINGS.restPeriodDuration, () => {
+        this.scene.time.delayedCall(restDuration, () => {
             if (!this.scene || !this.scene.scene || !this.scene.scene.isActive('MainScene')) {
                 clearInterval(countdownInterval);
                 return;
@@ -284,31 +340,46 @@ class EnemyManager {
                 });
             }
 
+            // Notify player that rest period is over
+            this.scene.showToastMessage("Rest period over!", 2000);
+
             clearInterval(countdownInterval);
         });
+    }
 
-        // Add timer effect
-        this.scene.tweens.add({
-            targets: restText,
-            scale: 1.2,
-            alpha: 0,
-            y: 80,
-            duration: 2000,
-            ease: 'Power2',
-            onComplete: () => {
-                restText.destroy();
+    // Clear all enemies from the screen (useful for transitions or boss fights)
+    clearEnemies() {
+        const enemies = this.enemies.getChildren();
 
-                // Reset back to normal spawn rate after 10 seconds
-                this.scene.time.delayedCall(10000, () => {
-                    this.spawnRate = originalSpawnRate;
-                    this.spawnTimer.reset({
-                        delay: this.spawnRate,
-                        callback: this.spawnEnemy,
-                        callbackScope: this,
-                        loop: true
-                    });
-                });
+        // Add visual effects for each enemy being cleared
+        enemies.forEach(enemySprite => {
+            const enemy = enemySprite.getData('ref');
+            if (enemy) {
+                // Visual effect
+                this.scene.add.circle(
+                    enemySprite.x,
+                    enemySprite.y,
+                    30,
+                    0xffffff,
+                    0.7
+                ).setDepth(20);
+
+                // Sometimes drop XP when cleared
+                if (Math.random() < 0.3) {
+                    enemy.dropXP();
+                }
+
+                enemy.destroy();
             }
         });
+
+        return enemies.length; // Return how many enemies were cleared
+    }
+
+    // Pause or resume enemy spawning
+    toggleSpawning(enable) {
+        if (this.spawnTimer) {
+            this.spawnTimer.paused = !enable;
+        }
     }
 }

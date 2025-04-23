@@ -85,6 +85,23 @@ class LevelUpUI {
     show(upgrades) {
         this.visible = true;
 
+        // Store player's position and velocity before pause
+        if (this.scene.player && this.scene.player.sprite) {
+            this.playerPrevPosition = {
+                x: this.scene.player.sprite.x,
+                y: this.scene.player.sprite.y
+            };
+            this.playerPrevVelocity = {
+                x: this.scene.player.sprite.body.velocity.x,
+                y: this.scene.player.sprite.body.velocity.y
+            };
+
+            // Lock player in place
+            this.scene.player.sprite.body.velocity.x = 0;
+            this.scene.player.sprite.body.velocity.y = 0;
+            this.scene.player.sprite.body.moves = false; // Disable physics movement
+        }
+
         // Add dramatic pause and effect when leveling up
         this.scene.time.delayedCall(300, () => {
             // Fade in overlay with a flash
@@ -273,6 +290,10 @@ class LevelUpUI {
                 });
 
                 this.visible = false;
+
+                if (this.scene.player && this.scene.player.sprite) {
+                    this.scene.player.sprite.body.moves = true;
+                }
 
                 // Call the callback after UI is hidden
                 if (callback) callback();
