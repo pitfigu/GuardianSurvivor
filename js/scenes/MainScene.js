@@ -11,29 +11,20 @@ class MainScene extends Phaser.Scene {
         this.playerLevel = 1;
         this.xpToNextLevel = GAME_SETTINGS.xpToLevelUp;
         this.currentXP = 0;
+        this.playerStartPosition = {
+            x: this.game.config.width / 2,
+            y: this.game.config.height / 2
+        };
     }
 
     create() {
+        // Create enhanced background that properly fills the screen
         this.createEnhancedBackground();
 
-        // Create a grid for visual reference
-        const grid = this.add.grid(
-            this.game.config.width / 2,
-            this.game.config.height / 2,
-            this.game.config.width,
-            this.game.config.height,
-            64,
-            64,
-            0x000000,
-            0,
-            0x444444,
-            0.2
-        ).setDepth(-5);
-
-        // Create player
+        // Create player at center of screen
         this.player = new Player(this,
-            this.game.config.width / 2,
-            this.game.config.height / 2
+            this.playerStartPosition.x,
+            this.playerStartPosition.y
         );
 
         console.log("Player created at:", this.player.sprite.x, this.player.sprite.y);
@@ -41,7 +32,7 @@ class MainScene extends Phaser.Scene {
         // Setup enemy manager
         this.enemyManager = new EnemyManager(this);
 
-        // NOW set up weapon collisions after enemyManager is created
+        // Set up weapon collisions after enemyManager is created
         if (this.player && typeof this.player.setupWeaponCollisions === 'function') {
             this.player.setupWeaponCollisions();
         }
@@ -74,24 +65,30 @@ class MainScene extends Phaser.Scene {
     }
 
     createEnhancedBackground() {
-        // Create starfield background
-        const stars1 = this.add.tileSprite(0, 0,
-            this.game.config.width * 2,
-            this.game.config.height * 2,
+        // Calculate background size to ensure it covers the entire game area
+        const width = this.game.config.width;
+        const height = this.game.config.height;
+
+        // Create starfield background that fills the screen
+        const stars1 = this.add.tileSprite(
+            width / 2,  // Center X
+            height / 2, // Center Y
+            width,
+            height,
             'bgPattern'
         );
-        stars1.setOrigin(0.25, 0.25);
         stars1.setTint(0x222244);
         stars1.setDepth(-10);
         this.stars1 = stars1;
 
         // Second starfield layer for parallax effect
-        const stars2 = this.add.tileSprite(0, 0,
-            this.game.config.width * 2,
-            this.game.config.height * 2,
+        const stars2 = this.add.tileSprite(
+            width / 2,
+            height / 2,
+            width,
+            height,
             'bgPattern'
         );
-        stars2.setOrigin(0.25, 0.25);
         stars2.setTint(0x3333aa);
         stars2.setScale(0.5);
         stars2.setDepth(-9);
@@ -102,8 +99,8 @@ class MainScene extends Phaser.Scene {
         const nebulaColors = [0x9955ff, 0x5599ff, 0xff5599];
         for (let i = 0; i < 5; i++) {
             const color = Phaser.Utils.Array.GetRandom(nebulaColors);
-            const x = Phaser.Math.Between(0, this.game.config.width);
-            const y = Phaser.Math.Between(0, this.game.config.height);
+            const x = Phaser.Math.Between(0, width);
+            const y = Phaser.Math.Between(0, height);
             const size = Phaser.Math.Between(150, 350);
 
             const nebula = this.add.circle(x, y, size, color, 0.03);
@@ -123,10 +120,10 @@ class MainScene extends Phaser.Scene {
 
         // Add grid lines
         const grid = this.add.grid(
-            this.game.config.width / 2,
-            this.game.config.height / 2,
-            this.game.config.width * 2,
-            this.game.config.height * 2,
+            width / 2,
+            height / 2,
+            width,
+            height,
             64, 64,
             undefined,
             0,
@@ -148,7 +145,7 @@ class MainScene extends Phaser.Scene {
         // Update HUD
         if (this.hud) this.hud.update();
 
-        // Slowly animate the background grid
+        // Update background parallax
         if (this.stars1) {
             this.stars1.tilePositionX += 0.05;
             this.stars1.tilePositionY += 0.05;
@@ -162,35 +159,34 @@ class MainScene extends Phaser.Scene {
 
     createParticleEmitters() {
         try {
-            // Create particle managers first
+            // Enemy death particles
             const deathParticles = this.add.particles('enemy');
-            const xpParticles = this.add.particles('xp');
-
-            // Then create emitters
             this.enemyDeathEmitter = deathParticles.createEmitter({
                 speed: { min: 50, max: 150 },
                 angle: { min: 0, max: 360 },
                 scale: { start: 0.4, end: 0.0 },
                 lifespan: { min: 400, max: 600 },
                 blendMode: 'ADD',
-                frequency: -1, // Manually emitted
+                frequency: -1,
                 active: true,
-                on: false // Not emitting automatically
+                on: false
             });
 
+            // XP collection particles
+            const xpParticles = this.add.particles('xp');
             this.xpCollectEmitter = xpParticles.createEmitter({
                 speed: { min: 30, max: 80 },
                 angle: { min: 0, max: 360 },
                 scale: { start: 0.6, end: 0.0 },
                 lifespan: { min: 300, max: 500 },
                 blendMode: 'ADD',
-                frequency: -1, // Manually emitted
+                frequency: -1,
                 active: true,
-                on: false // Not emitting automatically
+                on: false
             });
         } catch (error) {
             console.warn("Error creating particle emitters:", error);
-            // Create dummy emitters with all the methods we use
+            // Create dummy emitters
             this.enemyDeathEmitter = {
                 setPosition: () => { },
                 explode: () => { },
@@ -367,6 +363,14 @@ class MainScene extends Phaser.Scene {
     }
 
     levelUp() {
+        // Save current player position
+        if (this.player && this.player.sprite) {
+            this.playerStartPosition = {
+                x: this.player.sprite.x,
+                y: this.player.sprite.y
+            };
+        }
+
         this.playerLevel++;
         this.currentXP -= this.xpToNextLevel;
         this.xpToNextLevel = Math.floor(this.xpToNextLevel * GAME_SETTINGS.xpScaling);
@@ -396,8 +400,17 @@ class MainScene extends Phaser.Scene {
             }
         });
 
-        // Pause game and show level up UI
+        // Pause game completely
         this.paused = true;
+
+        // Stop all enemies
+        if (this.enemyManager && this.enemyManager.enemies) {
+            this.enemyManager.enemies.getChildren().forEach(enemySprite => {
+                enemySprite.setVelocity(0, 0);
+            });
+        }
+
+        // Show level up UI
         this.levelUpUI.show(this.upgradeManager.getRandomUpgrades(3));
     }
 
@@ -409,11 +422,17 @@ class MainScene extends Phaser.Scene {
         }
 
         upgrade.apply();
-        this.paused = false;
+
+        // Keep the game paused until the UI is fully hidden
+        this.levelUpUI.hide(() => {
+            this.paused = false;
+        });
 
         // Check if still have enough XP for another level up
         if (this.currentXP >= this.xpToNextLevel) {
-            this.levelUp();
+            this.time.delayedCall(500, () => {
+                this.levelUp();
+            });
         }
     }
 

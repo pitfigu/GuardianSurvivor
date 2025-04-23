@@ -34,7 +34,7 @@ class MenuScene extends Phaser.Scene {
     }
 
     create() {
-        // Background
+        // Create background
         this.createBackground();
 
         // Title with glow effect
@@ -63,10 +63,40 @@ class MenuScene extends Phaser.Scene {
             repeat: -1
         });
 
+        // Username section
+        this.add.text(
+            this.cameras.main.width / 2,
+            210,
+            'ENTER YOUR NAME:',
+            {
+                fontFamily: 'Arial',
+                fontSize: 20,
+                color: '#ffffff',
+                stroke: '#000000',
+                strokeThickness: 4
+            }
+        ).setOrigin(0.5);
+
+        // Get existing username from local storage or use default
+        const savedUsername = localStorage.getItem('username') || 'Player';
+
+        // Create DOM element for username input
+        const element = this.add.dom(
+            this.cameras.main.width / 2,
+            250
+        ).createFromHTML(`
+            <div style="background-color: #222266; padding: 10px; border-radius: 5px; border: 2px solid #4444aa;">
+                <input type="text" id="username" name="username" 
+                    placeholder="Enter your name" 
+                    value="${savedUsername}"
+                    style="padding: 8px; font-size: 16px; border-radius: 4px; border: none; width: 200px; text-align: center;">
+            </div>
+        `);
+
         // Start Game Button
         const startButton = this.add.rectangle(
             this.cameras.main.width / 2,
-            300,
+            350,
             240,
             60,
             0x4444aa
@@ -75,7 +105,7 @@ class MenuScene extends Phaser.Scene {
         // Button border
         const startButtonBorder = this.add.rectangle(
             this.cameras.main.width / 2,
-            300,
+            350,
             240,
             60
         ).setStrokeStyle(2, 0x8888ff);
@@ -83,7 +113,7 @@ class MenuScene extends Phaser.Scene {
         // Button text
         const startText = this.add.text(
             this.cameras.main.width / 2,
-            300,
+            350,
             'START GAME',
             {
                 fontFamily: 'Arial',
@@ -112,6 +142,14 @@ class MenuScene extends Phaser.Scene {
                 this.sound.play('select', { volume: 0.5 });
             }
 
+            // Save username
+            const inputElement = document.getElementById('username');
+            if (inputElement) {
+                const username = inputElement.value || 'Player';
+                localStorage.setItem('username', username);
+                GAME_STATE.username = username;
+            }
+
             // Button press effect
             this.tweens.add({
                 targets: [startButton, startText, startButtonBorder],
@@ -127,14 +165,62 @@ class MenuScene extends Phaser.Scene {
             });
         });
 
+        // Leaderboard button
+        const leaderboardButton = this.add.rectangle(
+            this.cameras.main.width / 2,
+            430,
+            240,
+            50,
+            0x222288
+        ).setInteractive({ useHandCursor: true });
+
+        // Button border
+        this.add.rectangle(
+            this.cameras.main.width / 2,
+            430,
+            240,
+            50
+        ).setStrokeStyle(2, 0x6666cc);
+
+        // Button text
+        this.add.text(
+            this.cameras.main.width / 2,
+            430,
+            'VIEW LEADERBOARD',
+            {
+                fontFamily: 'Arial',
+                fontSize: 18,
+                color: '#ffffff'
+            }
+        ).setOrigin(0.5);
+
+        // Button hover effect
+        leaderboardButton.on('pointerover', () => {
+            leaderboardButton.fillColor = 0x3333aa;
+            leaderboardButton.scale = 1.05;
+        });
+
+        leaderboardButton.on('pointerout', () => {
+            leaderboardButton.fillColor = 0x222288;
+            leaderboardButton.scale = 1;
+        });
+
+        // Button click action
+        leaderboardButton.on('pointerdown', () => {
+            if (this.sound && this.cache.audio.exists('select')) {
+                this.sound.play('select', { volume: 0.5 });
+            }
+            this.showLeaderboard();
+        });
+
         // High Score Display
         this.add.text(
             this.cameras.main.width / 2,
-            400,
-            'HIGH SCORE',
+            500,
+            'YOUR HIGH SCORE',
             {
                 fontFamily: 'Arial',
-                fontSize: 20,
+                fontSize: 16,
                 color: '#ffffff',
                 align: 'center'
             }
@@ -142,11 +228,11 @@ class MenuScene extends Phaser.Scene {
 
         this.add.text(
             this.cameras.main.width / 2,
-            430,
+            530,
             GAME_STATE.highScore.toString(),
             {
                 fontFamily: 'Arial',
-                fontSize: 32,
+                fontSize: 28,
                 color: '#ffff00',
                 align: 'center',
                 stroke: '#000000',
@@ -157,7 +243,7 @@ class MenuScene extends Phaser.Scene {
         // Instructions
         const instructions = this.add.text(
             this.cameras.main.width / 2,
-            520,
+            600,
             'Move: WASD or Arrow Keys\nAutomatically attack nearby enemies\nCollect XP to level up!',
             {
                 fontFamily: 'Arial',
@@ -186,45 +272,90 @@ class MenuScene extends Phaser.Scene {
 
     update() {
         // If you have a background that needs animation, update it here
+        if (this.stars1) {
+            this.stars1.tilePositionX += 0.2;
+            this.stars1.tilePositionY += 0.1;
+        }
+
+        if (this.stars2) {
+            this.stars2.tilePositionX += 0.1;
+            this.stars2.tilePositionY += 0.2;
+        }
     }
 
     createBackground() {
-        // Create a dark background with pattern
-        const bgPattern = this.add.tileSprite(
-            0, 0,
-            this.cameras.main.width * 2,
-            this.cameras.main.height * 2,
+        // Calculate background size to ensure it covers the entire game area
+        const width = this.cameras.main.width;
+        const height = this.cameras.main.height;
+
+        // Create starfield background
+        const stars1 = this.add.tileSprite(
+            width / 2,
+            height / 2,
+            width,
+            height,
             'bgPattern'
         );
-        bgPattern.setOrigin(0.25, 0.25);
-        bgPattern.setTint(0x222244);
-        bgPattern.setAlpha(0.7);
+        stars1.setTint(0x222244);
+        stars1.setDepth(-10);
+        this.stars1 = stars1;
 
-        // Add subtle animation
-        this.tweens.add({
-            targets: bgPattern,
-            tilePositionX: { from: 0, to: 100 },
-            tilePositionY: { from: 0, to: 100 },
-            ease: 'Linear',
-            duration: 30000,
-            repeat: -1
-        });
+        // Second starfield layer for parallax effect
+        const stars2 = this.add.tileSprite(
+            width / 2,
+            height / 2,
+            width,
+            height,
+            'bgPattern'
+        );
+        stars2.setTint(0x3333aa);
+        stars2.setScale(0.5);
+        stars2.setDepth(-9);
+        stars2.setAlpha(0.7);
+        this.stars2 = stars2;
+
+        // Add nebula effect
+        const nebulaColors = [0x9955ff, 0x5599ff, 0xff5599];
+        for (let i = 0; i < 3; i++) {
+            const color = Phaser.Utils.Array.GetRandom(nebulaColors);
+            const x = Phaser.Math.Between(0, width);
+            const y = Phaser.Math.Between(0, height);
+            const size = Phaser.Math.Between(150, 350);
+
+            const nebula = this.add.circle(x, y, size, color, 0.03);
+            nebula.setDepth(-8);
+
+            // Make nebulas slowly pulse
+            this.tweens.add({
+                targets: nebula,
+                alpha: 0.06,
+                scale: 1.1,
+                duration: 3000 + i * 1000,
+                yoyo: true,
+                repeat: -1,
+                ease: 'Sine.easeInOut'
+            });
+        }
 
         // Add glowing particles in background
-        const particles = this.add.particles('xp');
-        particles.setDepth(-1);
+        try {
+            const particles = this.add.particles(0, 0, 'xp');
+            particles.setDepth(-7);
 
-        particles.createEmitter({
-            x: { min: 0, max: this.cameras.main.width },
-            y: { min: 0, max: this.cameras.main.height },
-            scale: { start: 0.5, end: 0.1 },
-            alpha: { start: 0.5, end: 0 },
-            lifespan: 5000,
-            speedY: { min: -10, max: 10 },
-            speedX: { min: -10, max: 10 },
-            frequency: 500,
-            blendMode: 'ADD'
-        });
+            particles.createEmitter({
+                x: { min: 0, max: width },
+                y: { min: 0, max: height },
+                scale: { start: 0.5, end: 0.1 },
+                alpha: { start: 0.5, end: 0 },
+                lifespan: 5000,
+                speedY: { min: -10, max: 10 },
+                speedX: { min: -10, max: 10 },
+                frequency: 500,
+                blendMode: 'ADD'
+            });
+        } catch (e) {
+            console.warn("Could not create background particles", e);
+        }
     }
 
     createBasicSprites() {
@@ -294,6 +425,131 @@ class MenuScene extends Phaser.Scene {
             bgPatternGraphics.lineStyle(1, 0x333377);
             bgPatternGraphics.strokeRect(0, 0, 64, 64);
             bgPatternGraphics.generateTexture('bgPattern', 64, 64);
+        }
+    }
+
+    showLeaderboard() {
+        // Create leaderboard panel
+        const panel = this.add.rectangle(
+            this.cameras.main.width / 2,
+            this.cameras.main.height / 2,
+            500,
+            500,
+            0x222244,
+            0.95
+        );
+        panel.setStrokeStyle(2, 0x4444aa);
+
+        // Title
+        const title = this.add.text(
+            this.cameras.main.width / 2,
+            panel.y - 220,
+            'LEADERBOARD',
+            {
+                fontFamily: 'Arial',
+                fontSize: 28,
+                color: '#ffffff',
+                stroke: '#000000',
+                strokeThickness: 4
+            }
+        ).setOrigin(0.5);
+
+        // Get high scores from localStorage
+        const highScores = this.getHighScores();
+
+        // Display high scores
+        const scoreText = [];
+        for (let i = 0; i < Math.min(highScores.length, 10); i++) {
+            const score = highScores[i];
+            const text = this.add.text(
+                this.cameras.main.width / 2,
+                panel.y - 160 + (i * 40),
+                `${i + 1}. ${score.name} - ${score.score} - Lvl ${score.level}`,
+                {
+                    fontFamily: 'Arial',
+                    fontSize: 20,
+                    color: i === 0 ? '#ffff00' : '#ffffff',
+                    stroke: '#000000',
+                    strokeThickness: 3
+                }
+            ).setOrigin(0.5);
+            scoreText.push(text);
+        }
+
+        // If no scores, show message
+        if (highScores.length === 0) {
+            const noScores = this.add.text(
+                this.cameras.main.width / 2,
+                panel.y,
+                'No scores yet. Play a game!',
+                {
+                    fontFamily: 'Arial',
+                    fontSize: 20,
+                    color: '#aaaaaa',
+                    stroke: '#000000',
+                    strokeThickness: 3
+                }
+            ).setOrigin(0.5);
+            scoreText.push(noScores);
+        }
+
+        // Close button
+        const closeButton = this.add.rectangle(
+            this.cameras.main.width / 2,
+            panel.y + 220,
+            200,
+            50,
+            0x444488
+        ).setInteractive({ useHandCursor: true });
+
+        const closeText = this.add.text(
+            this.cameras.main.width / 2,
+            panel.y + 220,
+            'CLOSE',
+            {
+                fontFamily: 'Arial',
+                fontSize: 20,
+                color: '#ffffff'
+            }
+        ).setOrigin(0.5);
+
+        closeButton.on('pointerover', () => {
+            closeButton.fillColor = 0x5555aa;
+            closeButton.scale = 1.05;
+            closeText.scale = 1.05;
+        });
+
+        closeButton.on('pointerout', () => {
+            closeButton.fillColor = 0x444488;
+            closeButton.scale = 1;
+            closeText.scale = 1;
+        });
+
+        closeButton.on('pointerdown', () => {
+            if (this.sound && this.cache.audio.exists('select')) {
+                this.sound.play('select', { volume: 0.3 });
+            }
+
+            // Fade out and destroy panel
+            const elements = [panel, title, closeButton, closeText, ...scoreText];
+            this.tweens.add({
+                targets: elements,
+                alpha: 0,
+                duration: 300,
+                onComplete: () => {
+                    elements.forEach(el => el.destroy());
+                }
+            });
+        });
+    }
+
+    getHighScores() {
+        try {
+            const scores = JSON.parse(localStorage.getItem('highScores')) || [];
+            return scores.sort((a, b) => b.score - a.score);
+        } catch (e) {
+            console.error("Error loading high scores:", e);
+            return [];
         }
     }
 }

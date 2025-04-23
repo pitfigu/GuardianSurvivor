@@ -1,10 +1,12 @@
-// js/game.js
 const config = {
     type: Phaser.AUTO,
     parent: 'game-container',
-    width: 1024,    // Increased from 800
-    height: 768,    // Increased from 600
-    backgroundColor: '#111133', // Dark blue background
+    width: 1024,
+    height: 768,
+    backgroundColor: '#111133',
+    dom: {
+        createContainer: true
+    },
     physics: {
         default: 'arcade',
         arcade: {
@@ -19,29 +21,65 @@ const game = new Phaser.Game(config);
 
 // Global game settings
 const GAME_SETTINGS = {
-    playerSpeed: 180,         // Slightly faster player
+    playerSpeed: 180,
     playerHealth: 100,
-    baseEnemySpawnRate: 2000, // ms
-    minEnemySpawnRate: 500,   // Spawning won't get faster than this
-    difficultyScaling: 0.98,  // More gradual difficulty increase (was 0.95)
-    maxActiveEnemies: 50,     // Cap on enemies to prevent overwhelming the player
+    baseEnemySpawnRate: 2000,
+    minEnemySpawnRate: 500,
+    difficultyScaling: 0.98,
+    maxActiveEnemies: 50,
     xpToLevelUp: 10,
-    xpScaling: 1.4,           // Slightly reduced XP scaling (was 1.5)
-    enemyDamage: {            // Standardize enemy damage
+    xpScaling: 1.4,
+    enemyDamage: {
         basic: 5,
         fast: 3,
         tank: 10
     }
 };
 
-function playSound(scene, key, config = {}) {
-    // Only play the sound if it exists in the cache
-    if (scene.sound && scene.cache.audio.exists(key)) {
-        scene.sound.play(key, config);
+// Global game state
+const GAME_STATE = {
+    username: localStorage.getItem('username') || 'Player',
+    highScore: parseInt(localStorage.getItem('highScore') || '0')
+};
+
+// Function to save high score with username
+function saveHighScore(score, time, level) {
+    try {
+        // Get existing high scores or initialize empty array
+        const highScores = JSON.parse(localStorage.getItem('highScores')) || [];
+
+        // Add new score
+        highScores.push({
+            name: GAME_STATE.username,
+            score: score,
+            time: time,
+            level: level,
+            date: new Date().toISOString()
+        });
+
+        // Sort by score (highest first) and keep only top 10
+        const sortedScores = highScores
+            .sort((a, b) => b.score - a.score)
+            .slice(0, 10);
+
+        // Save back to local storage
+        localStorage.setItem('highScores', JSON.stringify(sortedScores));
+
+        // Update single high score if needed
+        if (score > GAME_STATE.highScore) {
+            GAME_STATE.highScore = score;
+            localStorage.setItem('highScore', score);
+        }
+    } catch (e) {
+        console.error("Error saving high score:", e);
     }
 }
 
-// Global game state
-const GAME_STATE = {
-    highScore: localStorage.getItem('highScore') || 0
-};
+// Helper function to play sounds safely
+function playSound(scene, key, config = {}) {
+    if (scene && scene.sound && scene.cache.audio.exists(key)) {
+        return scene.sound.play(key, config);
+    }
+    return null;
+}
+

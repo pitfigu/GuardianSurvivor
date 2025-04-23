@@ -3,15 +3,18 @@ class Player {
     constructor(scene, x, y) {
         this.scene = scene;
 
-        // Create player sprite
+        // Create player sprite with improved visibility
         this.sprite = scene.physics.add.sprite(x, y, 'player');
         this.sprite.setCollideWorldBounds(true);
         this.sprite.setData('ref', this);
 
-        // Make player more visually distinct
+        // Make player more visible and ensure proper scaling
         this.sprite.setScale(1.2);
         this.sprite.setTint(0x4488ff);
         this.sprite.setDepth(10);
+        this.sprite.setAlpha(1);
+
+        console.log("Player sprite created:", this.sprite);
 
         // Add shadow beneath player
         this.shadow = scene.add.ellipse(x, y + 10, 24, 8, 0x000000, 0.5);

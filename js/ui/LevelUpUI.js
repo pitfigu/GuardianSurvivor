@@ -239,8 +239,11 @@ class LevelUpUI {
         });
     }
 
-    hide() {
-        if (!this.visible) return;
+    hide(callback = null) {
+        if (!this.visible) {
+            if (callback) callback();
+            return;
+        }
 
         // Animate elements away
         const elements = [this.title, this.subtitle];
@@ -270,6 +273,9 @@ class LevelUpUI {
                 });
 
                 this.visible = false;
+
+                // Call the callback after UI is hidden
+                if (callback) callback();
             }
         });
     }
