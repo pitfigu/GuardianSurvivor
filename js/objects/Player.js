@@ -3,14 +3,10 @@ class Player {
     constructor(scene, x, y) {
         this.scene = scene;
 
-        // Create player sprite with improved visibility
+        // Create player sprite
         this.sprite = scene.physics.add.sprite(x, y, 'player');
         this.sprite.setCollideWorldBounds(true);
         this.sprite.setData('ref', this);
-
-        this.damageCooldowns = new Map(); // Track cooldown per enemy
-        this.invulnerableUntil = 0; // Global invulnerability
-        this.damageFlashing = false; // Track if player is flashing
 
         // Make player more visible and ensure proper scaling
         this.sprite.setScale(1.2);
@@ -24,7 +20,7 @@ class Player {
         this.shadow = scene.add.ellipse(x, y + 10, 24, 8, 0x000000, 0.5);
         this.shadow.setDepth(9);
 
-        // Add glowing aura
+        // Add glowing aura - use the same texture as player to avoid frame errors
         this.aura = scene.add.sprite(x, y, 'player');
         this.aura.setScale(1.6);
         this.aura.setAlpha(0.3);
@@ -43,6 +39,11 @@ class Player {
             ease: 'Sine.easeInOut'
         });
 
+        // Initialize damage cooldowns
+        this.damageCooldowns = new Map();
+        this.invulnerableUntil = 0;
+        this.damageFlashing = false;
+
         // Player stats
         this.health = GAME_SETTINGS.playerHealth;
         this.maxHealth = GAME_SETTINGS.playerHealth;
@@ -51,23 +52,6 @@ class Player {
         // Weapons array
         this.weapons = [];
         this.addWeapon(new BasicWeapon(scene, this));
-
-        // Add small light particles around player
-        try {
-            const particles = scene.add.particles(x, y, 'xp', {
-                scale: { start: 0.2, end: 0 },
-                speed: { min: 10, max: 20 },
-                quantity: 1,
-                frequency: 200,
-                lifespan: 1000,
-                alpha: { start: 0.5, end: 0 },
-                blendMode: 'ADD'
-            });
-            particles.setDepth(11);
-            this.particles = particles;
-        } catch (e) {
-            console.warn("Could not create player particles", e);
-        }
     }
 
     update(time, delta) {

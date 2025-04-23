@@ -1,4 +1,3 @@
-// Add a new file: js/services/GameAudioManager.js
 class GameAudioManager {
     constructor(scene) {
         this.scene = scene;

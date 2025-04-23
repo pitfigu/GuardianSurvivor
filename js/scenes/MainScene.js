@@ -46,6 +46,15 @@ class MainScene extends Phaser.Scene {
         // Create level up UI
         this.levelUpUI = new LevelUpUI(this);
 
+        // Create audio manager (if available)
+        try {
+            if (typeof GameAudioManager !== 'undefined') {
+                this.audioManager = new GameAudioManager(this);
+            }
+        } catch (e) {
+            console.warn("GameAudioManager not available:", e);
+        }
+
         // Create particle emitters
         this.createParticleEmitters();
 
@@ -62,32 +71,6 @@ class MainScene extends Phaser.Scene {
 
         // Input handlers
         this.setupInputHandlers();
-
-        // Add game audio manager
-        this.audioManager = new GameAudioManager(this);
-
-        // Add status effect system
-        this.statusEffects = new Map();
-
-        // Add game timer display with better formatting
-        this.formattedTimeText = this.add.text(
-            this.game.config.width - 20,
-            50,
-            '00:00',
-            {
-                fontSize: '24px',
-                color: '#ffffff',
-                fontFamily: 'Arial',
-                stroke: '#000000',
-                strokeThickness: 3
-            }
-        ).setOrigin(1, 0).setScrollFactor(0).setDepth(100);
-
-        // Create minimap system
-        this.createMinimap();
-
-        // Setup keyboard shortcuts
-        this.setupKeyboardShortcuts();
     }
 
     createEnhancedBackground() {
