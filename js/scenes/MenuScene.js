@@ -433,8 +433,8 @@ class MenuScene extends Phaser.Scene {
         const panel = this.add.rectangle(
             this.cameras.main.width / 2,
             this.cameras.main.height / 2,
-            500,
-            500,
+            550, // Wider panel
+            550, // Taller panel
             0x222244,
             0.95
         );
@@ -443,60 +443,215 @@ class MenuScene extends Phaser.Scene {
         // Title
         const title = this.add.text(
             this.cameras.main.width / 2,
-            panel.y - 220,
+            panel.y - 240,
             'LEADERBOARD',
             {
                 fontFamily: 'Arial',
-                fontSize: 28,
+                fontSize: 32,
                 color: '#ffffff',
                 stroke: '#000000',
                 strokeThickness: 4
             }
         ).setOrigin(0.5);
 
-        // Get high scores from localStorage
-        const highScores = this.getHighScores();
+        // Display tabs for global/local scores
+        const localTab = this.add.rectangle(
+            panel.x - 100,
+            panel.y - 200,
+            100, 30,
+            0x444488
+        );
+        localTab.setInteractive({ useHandCursor: true });
 
-        // Display high scores
-        const scoreText = [];
-        for (let i = 0; i < Math.min(highScores.length, 10); i++) {
-            const score = highScores[i];
-            const text = this.add.text(
-                this.cameras.main.width / 2,
-                panel.y - 160 + (i * 40),
-                `${i + 1}. ${score.name} - ${score.score} - Lvl ${score.level}`,
-                {
-                    fontFamily: 'Arial',
-                    fontSize: 20,
-                    color: i === 0 ? '#ffff00' : '#ffffff',
-                    stroke: '#000000',
-                    strokeThickness: 3
-                }
-            ).setOrigin(0.5);
-            scoreText.push(text);
-        }
+        const globalTab = this.add.rectangle(
+            panel.x + 100,
+            panel.y - 200,
+            100, 30,
+            0x222266
+        );
+        globalTab.setInteractive({ useHandCursor: true });
 
-        // If no scores, show message
-        if (highScores.length === 0) {
-            const noScores = this.add.text(
-                this.cameras.main.width / 2,
-                panel.y,
-                'No scores yet. Play a game!',
-                {
-                    fontFamily: 'Arial',
-                    fontSize: 20,
-                    color: '#aaaaaa',
-                    stroke: '#000000',
-                    strokeThickness: 3
-                }
-            ).setOrigin(0.5);
-            scoreText.push(noScores);
-        }
+        const localText = this.add.text(
+            panel.x - 100,
+            panel.y - 200,
+            'LOCAL',
+            {
+                fontFamily: 'Arial',
+                fontSize: 16,
+                color: '#ffffff'
+            }
+        ).setOrigin(0.5);
+
+        const globalText = this.add.text(
+            panel.x + 100,
+            panel.y - 200,
+            'GLOBAL',
+            {
+                fontFamily: 'Arial',
+                fontSize: 16,
+                color: '#aaaaaa'
+            }
+        ).setOrigin(0.5);
+
+        // Container for scores
+        const scoreContainer = this.add.container(0, 0);
+
+        // Function to display scores
+        const displayScores = (isGlobal = false) => {
+            // Clear previous scores
+            scoreContainer.removeAll(true);
+
+            // Update tab appearance
+            localTab.fillColor = isGlobal ? 0x222266 : 0x444488;
+            globalTab.fillColor = isGlobal ? 0x444488 : 0x222266;
+            localText.setColor(isGlobal ? '#aaaaaa' : '#ffffff');
+            globalText.setColor(isGlobal ? '#ffffff' : '#aaaaaa');
+
+            // Get scores based on tab
+            let scores;
+            if (isGlobal && GAME_STATE.leaderboardService) {
+                scores = GAME_STATE.leaderboardService.getGlobalScores();
+            } else {
+                scores = this.getHighScores();
+            }
+
+            // Header row
+            const headerTexts = [
+                this.add.text(panel.x - 225, panel.y - 160, 'RANK', {
+                    fontSize: '14px', color: '#aaaaff', fontFamily: 'Arial'
+                }).setOrigin(0, 0.5),
+
+                this.add.text(panel.x - 175, panel.y - 160, 'NAME', {
+                    fontSize: '14px', color: '#aaaaff', fontFamily: 'Arial'
+                }).setOrigin(0, 0.5),
+
+                this.add.text(panel.x + 50, panel.y - 160, 'SCORE', {
+                    fontSize: '14px', color: '#aaaaff', fontFamily: 'Arial'
+                }).setOrigin(0, 0.5),
+
+                this.add.text(panel.x + 150, panel.y - 160, 'LEVEL', {
+                    fontSize: '14px', color: '#aaaaff', fontFamily: 'Arial'
+                }).setOrigin(0, 0.5)
+            ];
+            scoreContainer.add(headerTexts);
+
+            // Separator line
+            const line = this.add.line(
+                panel.x, panel.y - 140,
+                -225, 0, 225, 0,
+                0x4444aa, 0.8
+            );
+            scoreContainer.add(line);
+
+            // Display scores
+            for (let i = 0; i < Math.min(scores.length, 10); i++) {
+                const score = scores[i];
+                const y = panel.y - 120 + (i * 30);
+
+                // Different colors for own scores vs others
+                const isOwnScore = score.device === GAME_STATE.leaderboardService?.getDeviceId();
+                const textColor = isOwnScore ? '#ffff88' : '#ffffff';
+
+                // Score row elements
+                const rowTexts = [
+                    this.add.text(panel.x - 225, y, `${i + 1}.`, {
+                        fontSize: '16px', color: textColor, fontFamily: 'Arial'
+                    }).setOrigin(0, 0.5),
+
+                    this.add.text(panel.x - 175, y, this.truncateText(score.name, 16), {
+                        fontSize: '16px', color: textColor, fontFamily: 'Arial'
+                    }).setOrigin(0, 0.5),
+
+                    this.add.text(panel.x + 50, y, score.score.toString(), {
+                        fontSize: '16px', color: textColor, fontFamily: 'Arial'
+                    }).setOrigin(0, 0.5),
+
+                    this.add.text(panel.x + 150, y, score.level.toString(), {
+                        fontSize: '16px', color: textColor, fontFamily: 'Arial'
+                    }).setOrigin(0, 0.5)
+                ];
+                scoreContainer.add(rowTexts);
+            }
+
+            // If no scores, show message
+            if (scores.length === 0) {
+                const noScores = this.add.text(
+                    this.cameras.main.width / 2,
+                    panel.y,
+                    'No scores yet. Play a game!',
+                    {
+                        fontFamily: 'Arial',
+                        fontSize: 20,
+                        color: '#aaaaaa',
+                        stroke: '#000000',
+                        strokeThickness: 3
+                    }
+                ).setOrigin(0.5);
+                scoreContainer.add(noScores);
+            }
+
+            // Add share button for global scores
+            if (isGlobal && scores.length > 0 && GAME_STATE.leaderboardService) {
+                const shareButton = this.add.rectangle(
+                    panel.x,
+                    panel.y + 180,
+                    200, 40,
+                    0x225588
+                ).setInteractive({ useHandCursor: true });
+
+                const shareText = this.add.text(
+                    panel.x,
+                    panel.y + 180,
+                    'SHARE LEADERBOARD',
+                    {
+                        fontFamily: 'Arial',
+                        fontSize: 16,
+                        color: '#ffffff'
+                    }
+                ).setOrigin(0.5);
+
+                // Button hover effect
+                shareButton.on('pointerover', () => {
+                    shareButton.fillColor = 0x3366aa;
+                    shareButton.scale = 1.05;
+                    shareText.scale = 1.05;
+                });
+
+                shareButton.on('pointerout', () => {
+                    shareButton.fillColor = 0x225588;
+                    shareButton.scale = 1;
+                    shareText.scale = 1;
+                });
+
+                // Generate shareable URL when clicked
+                shareButton.on('pointerdown', () => {
+                    playSound(this, 'select', { volume: 0.3 });
+
+                    const url = GAME_STATE.leaderboardService.generateShareableURL();
+                    if (url) {
+                        this.showShareDialog(url);
+                    }
+                });
+
+                scoreContainer.add([shareButton, shareText]);
+            }
+        };
+
+        // Set up tab behavior
+        localTab.on('pointerdown', () => {
+            playSound(this, 'select', { volume: 0.3 });
+            displayScores(false);
+        });
+
+        globalTab.on('pointerdown', () => {
+            playSound(this, 'select', { volume: 0.3 });
+            displayScores(true);
+        });
 
         // Close button
         const closeButton = this.add.rectangle(
             this.cameras.main.width / 2,
-            panel.y + 220,
+            panel.y + 240,
             200,
             50,
             0x444488
@@ -504,7 +659,7 @@ class MenuScene extends Phaser.Scene {
 
         const closeText = this.add.text(
             this.cameras.main.width / 2,
-            panel.y + 220,
+            panel.y + 240,
             'CLOSE',
             {
                 fontFamily: 'Arial',
@@ -531,13 +686,192 @@ class MenuScene extends Phaser.Scene {
             }
 
             // Fade out and destroy panel
-            const elements = [panel, title, closeButton, closeText, ...scoreText];
+            const elements = [
+                panel, title, closeButton, closeText,
+                localTab, globalTab, localText, globalText
+            ];
+
             this.tweens.add({
-                targets: elements,
+                targets: elements.concat(scoreContainer.getAll()),
                 alpha: 0,
                 duration: 300,
                 onComplete: () => {
                     elements.forEach(el => el.destroy());
+                    scoreContainer.destroy();
+                }
+            });
+        });
+
+        // Show local scores by default
+        displayScores(false);
+    }
+
+    // Add method to truncate text that's too long
+    truncateText(text, maxLength) {
+        if (text.length <= maxLength) return text;
+        return text.substring(0, maxLength - 3) + '...';
+    }
+
+    // Add method to show share dialog
+    showShareDialog(url) {
+        // Create a simple modal dialog
+        const overlay = this.add.rectangle(
+            0, 0,
+            this.cameras.main.width,
+            this.cameras.main.height,
+            0x000000, 0.8
+        );
+        overlay.setOrigin(0, 0);
+
+        const panel = this.add.rectangle(
+            this.cameras.main.width / 2,
+            this.cameras.main.height / 2,
+            500, 300,
+            0x333366, 0.95
+        );
+        panel.setStrokeStyle(2, 0x5555cc);
+
+        const title = this.add.text(
+            this.cameras.main.width / 2,
+            panel.y - 120,
+            'SHARE LEADERBOARD',
+            {
+                fontFamily: 'Arial',
+                fontSize: 24,
+                color: '#ffffff',
+                stroke: '#000000',
+                strokeThickness: 2
+            }
+        ).setOrigin(0.5);
+
+        // Create URL display with background
+        const urlBg = this.add.rectangle(
+            this.cameras.main.width / 2,
+            panel.y,
+            450, 40,
+            0x222244
+        );
+
+        const urlText = this.add.text(
+            this.cameras.main.width / 2,
+            panel.y,
+            this.truncateText(url, 50),
+            {
+                fontFamily: 'monospace',
+                fontSize: 14,
+                color: '#88ccff'
+            }
+        ).setOrigin(0.5);
+
+        // Instructions
+        const instructions = this.add.text(
+            this.cameras.main.width / 2,
+            panel.y + 60,
+            'Copy this URL to share the leaderboard with friends.\nWhen they open it, their scores will be added too!',
+            {
+                fontFamily: 'Arial',
+                fontSize: 16,
+                color: '#ffffff',
+                align: 'center'
+            }
+        ).setOrigin(0.5);
+
+        // Copy button
+        const copyButton = this.add.rectangle(
+            this.cameras.main.width / 2,
+            panel.y + 120,
+            200, 40,
+            0x225588
+        ).setInteractive({ useHandCursor: true });
+
+        const copyText = this.add.text(
+            this.cameras.main.width / 2,
+            panel.y + 120,
+            'COPY TO CLIPBOARD',
+            {
+                fontFamily: 'Arial',
+                fontSize: 16,
+                color: '#ffffff'
+            }
+        ).setOrigin(0.5);
+
+        // Copy functionality
+        copyButton.on('pointerdown', () => {
+            playSound(this, 'select', { volume: 0.3 });
+
+            // Use clipboard API or fallback
+            if (navigator.clipboard && window.isSecureContext) {
+                navigator.clipboard.writeText(url).then(() => {
+                    copyText.setText('COPIED!');
+                    this.time.delayedCall(1500, () => {
+                        if (copyText.active) {
+                            copyText.setText('COPY TO CLIPBOARD');
+                        }
+                    });
+                });
+            } else {
+                // Fallback using a temporary input element
+                const textArea = document.createElement('textarea');
+                textArea.value = url;
+                document.body.appendChild(textArea);
+                textArea.focus();
+                textArea.select();
+
+                try {
+                    document.execCommand('copy');
+                    copyText.setText('COPIED!');
+                    this.time.delayedCall(1500, () => {
+                        if (copyText.active) {
+                            copyText.setText('COPY TO CLIPBOARD');
+                        }
+                    });
+                } catch (err) {
+                    console.error('Failed to copy URL: ', err);
+                    copyText.setText('COPY FAILED');
+                }
+
+                document.body.removeChild(textArea);
+            }
+        });
+
+        // Close button
+        const closeButton = this.add.rectangle(
+            this.cameras.main.width / 2,
+            panel.y + 120 + 50,
+            200, 40,
+            0x444488
+        ).setInteractive({ useHandCursor: true });
+
+        const closeButtonText = this.add.text(
+            this.cameras.main.width / 2,
+            panel.y + 120 + 50,
+            'CLOSE',
+            {
+                fontFamily: 'Arial',
+                fontSize: 16,
+                color: '#ffffff'
+            }
+        ).setOrigin(0.5);
+
+        closeButton.on('pointerdown', () => {
+            playSound(this, 'select', { volume: 0.3 });
+
+            this.tweens.add({
+                targets: [overlay, panel, title, urlBg, urlText, instructions,
+                    copyButton, copyText, closeButton, closeButtonText],
+                alpha: 0,
+                duration: 300,
+                onComplete: () => {
+                    overlay.destroy();
+                    panel.destroy();
+                    title.destroy();
+                    urlBg.destroy();
+                    urlText.destroy();
+                    instructions.destroy();
+                    copyButton.destroy();
+                    copyText.destroy();
+                    closeButton.destroy();
+                    closeButtonText.destroy();
                 }
             });
         });

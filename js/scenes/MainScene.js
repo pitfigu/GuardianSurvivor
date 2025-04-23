@@ -62,46 +62,102 @@ class MainScene extends Phaser.Scene {
 
         // Input handlers
         this.setupInputHandlers();
+
+        // Add game audio manager
+        this.audioManager = new GameAudioManager(this);
+
+        // Add status effect system
+        this.statusEffects = new Map();
+
+        // Add game timer display with better formatting
+        this.formattedTimeText = this.add.text(
+            this.game.config.width - 20,
+            50,
+            '00:00',
+            {
+                fontSize: '24px',
+                color: '#ffffff',
+                fontFamily: 'Arial',
+                stroke: '#000000',
+                strokeThickness: 3
+            }
+        ).setOrigin(1, 0).setScrollFactor(0).setDepth(100);
+
+        // Create minimap system
+        this.createMinimap();
+
+        // Setup keyboard shortcuts
+        this.setupKeyboardShortcuts();
     }
 
     createEnhancedBackground() {
-        // Calculate background size to ensure it covers the entire game area
         const width = this.game.config.width;
         const height = this.game.config.height;
 
-        // Create starfield background that fills the screen
-        const stars1 = this.add.tileSprite(
-            width / 2,  // Center X
-            height / 2, // Center Y
-            width,
-            height,
-            'bgPattern'
-        );
-        stars1.setTint(0x222244);
-        stars1.setDepth(-10);
-        this.stars1 = stars1;
+        // Create a dark gradient background
+        const gradientTop = 0x111133;
+        const gradientBottom = 0x221144;
 
-        // Second starfield layer for parallax effect
-        const stars2 = this.add.tileSprite(
+        // Since Phaser doesn't have built-in gradients, we'll simulate with multiple rectangles
+        for (let i = 0; i < height; i += 4) {
+            const ratio = i / height;
+            const color = Phaser.Display.Color.Interpolate.ColorWithColor(
+                { r: (gradientTop >> 16) & 0xFF, g: (gradientTop >> 8) & 0xFF, b: gradientTop & 0xFF },
+                { r: (gradientBottom >> 16) & 0xFF, g: (gradientBottom >> 8) & 0xFF, b: gradientBottom & 0xFF },
+                100,
+                ratio * 100
+            );
+
+            const rgbColor = Phaser.Display.Color.GetColor(color.r, color.g, color.b);
+
+            const rect = this.add.rectangle(width / 2, i, width, 4, rgbColor);
+            rect.setOrigin(0.5, 0);
+            rect.setDepth(-15);
+        }
+
+        // Create starfield background in a separate layer
+        this.stars1 = this.add.tileSprite(
             width / 2,
             height / 2,
             width,
             height,
             'bgPattern'
         );
-        stars2.setTint(0x3333aa);
-        stars2.setScale(0.5);
-        stars2.setDepth(-9);
-        stars2.setAlpha(0.7);
-        this.stars2 = stars2;
+        this.stars1.setTint(0x333366);
+        this.stars1.setAlpha(0.6);
+        this.stars1.setDepth(-10);
 
-        // Add nebula effect
+        // Add a slight bloom/glow effect to the background using post-processing
+        const bloomStrength = 1.5;
+        const postFxPlugin = this.plugins.get('rexGlowFilterPipeline');
+
+        if (postFxPlugin) {
+            postFxPlugin.add(this.stars1, {
+                intensity: 0.02,
+                color: 0x4466ff
+            });
+        }
+
+        // Add depth effect with a second star layer
+        this.stars2 = this.add.tileSprite(
+            width / 2,
+            height / 2,
+            width,
+            height,
+            'bgPattern'
+        );
+        this.stars2.setTint(0x4455aa);
+        this.stars2.setScale(0.5);
+        this.stars2.setAlpha(0.4);
+        this.stars2.setDepth(-9);
+
+        // Add nebula effects
         const nebulaColors = [0x9955ff, 0x5599ff, 0xff5599];
-        for (let i = 0; i < 5; i++) {
+        for (let i = 0; i < 3; i++) {
             const color = Phaser.Utils.Array.GetRandom(nebulaColors);
             const x = Phaser.Math.Between(0, width);
             const y = Phaser.Math.Between(0, height);
-            const size = Phaser.Math.Between(150, 350);
+            const size = Phaser.Math.Between(100, 300);
 
             const nebula = this.add.circle(x, y, size, color, 0.03);
             nebula.setDepth(-8);
@@ -118,19 +174,28 @@ class MainScene extends Phaser.Scene {
             });
         }
 
-        // Add grid lines
-        const grid = this.add.grid(
+        // Add subtle grid lines for gameplay clarity
+        this.grid = this.add.grid(
             width / 2,
             height / 2,
-            width,
-            height,
+            width * 2,
+            height * 2,
             64, 64,
             undefined,
             0,
             0x4444aa,
-            0.15
+            0.1
         );
-        grid.setDepth(-7);
+        this.grid.setDepth(-5);
+
+        // Add borders to indicate game boundaries
+        const borderWidth = 2;
+        const borderColor = 0x6666cc;
+
+        this.add.rectangle(width / 2, borderWidth / 2, width, borderWidth, borderColor, 0.8).setDepth(1);
+        this.add.rectangle(width / 2, height - borderWidth / 2, width, borderWidth, borderColor, 0.8).setDepth(1);
+        this.add.rectangle(borderWidth / 2, height / 2, borderWidth, height, borderColor, 0.8).setDepth(1);
+        this.add.rectangle(width - borderWidth / 2, height / 2, borderWidth, height, borderColor, 0.8).setDepth(1);
     }
 
     update(time, delta) {
@@ -154,6 +219,92 @@ class MainScene extends Phaser.Scene {
         if (this.stars2) {
             this.stars2.tilePositionX += 0.1;
             this.stars2.tilePositionY += 0.1;
+        }
+    }
+
+    // Method for minimap creation
+    createMinimap() {
+        const minimapSize = 150;
+        const minimapScale = 0.1;
+        const x = this.game.config.width - minimapSize - 20;
+        const y = this.game.config.height - minimapSize - 20;
+
+        // Create minimap background
+        const minimapBg = this.add.rectangle(
+            x, y, minimapSize, minimapSize, 0x000000, 0.7
+        );
+        minimapBg.setStrokeStyle(2, 0x4444aa);
+        minimapBg.setScrollFactor(0);
+        minimapBg.setDepth(100);
+
+        // Create minimap container
+        this.minimapContainer = this.add.container(x, y);
+        this.minimapContainer.setScrollFactor(0);
+        this.minimapContainer.setDepth(101);
+
+        // Create player blip
+        const playerBlip = this.add.circle(0, 0, 4, 0x44ff44);
+        this.playerBlip = playerBlip;
+        this.minimapContainer.add(playerBlip);
+
+        // Enemy blips container
+        this.enemyBlips = this.add.group();
+
+        // Add minimap border
+        const minimapBorder = this.add.rectangle(
+            x, y, minimapSize, minimapSize
+        );
+        minimapBorder.setStrokeStyle(2, 0x4444aa);
+        minimapBorder.setScrollFactor(0);
+        minimapBorder.setDepth(102);
+        minimapBorder.setFillStyle();
+
+        // Store minimap properties
+        this.minimap = {
+            x, y, size: minimapSize, scale: minimapScale
+        };
+    }
+
+    // Update minimap in the update method
+    updateMinimap() {
+        if (!this.player || !this.enemyManager || !this.minimap) return;
+
+        const { x: mapX, y: mapY, size, scale } = this.minimap;
+
+        // Update player position on minimap
+        const playerMapX = (this.player.sprite.x * scale);
+        const playerMapY = (this.player.sprite.y * scale);
+        this.playerBlip.setPosition(playerMapX, playerMapY);
+
+        // Clear old enemy blips
+        this.enemyBlips.clear(true, true);
+
+        // Create new blips for enemies
+        const enemies = this.enemyManager.enemies.getChildren();
+        for (const enemySprite of enemies) {
+            const enemy = enemySprite.getData('ref');
+            if (!enemy) continue;
+
+            const enemyMapX = (enemySprite.x * scale);
+            const enemyMapY = (enemySprite.y * scale);
+
+            // Only show enemies within minimap bounds
+            if (Math.abs(enemyMapX) <= size / 2 && Math.abs(enemyMapY) <= size / 2) {
+                const blipSize = enemy.type === 'tank' ? 3 : 2;
+                let color;
+
+                switch (enemy.type) {
+                    case 'tank': color = 0xff2222; break;
+                    case 'fast': color = 0x22ffff; break;
+                    default: color = 0xff4444;
+                }
+
+                const blip = this.add.circle(
+                    enemyMapX, enemyMapY, blipSize, color
+                );
+                this.enemyBlips.add(blip);
+                this.minimapContainer.add(blip);
+            }
         }
     }
 
@@ -209,6 +360,241 @@ class MainScene extends Phaser.Scene {
         }
     }
 
+    // Setup keyboard shortcuts
+    setupKeyboardShortcuts() {
+        // Mute toggle
+        this.input.keyboard.on('keydown-M', () => {
+            if (this.audioManager) {
+                const muted = this.audioManager.toggleMute();
+                this.showToastMessage(muted ? 'Sound Muted' : 'Sound Unmuted');
+            }
+        });
+
+        // Pause game
+        this.input.keyboard.on('keydown-P', () => {
+            // Only if not already in level-up pause
+            if (!this.levelUpUI || !this.levelUpUI.visible) {
+                this.togglePause();
+            }
+        });
+
+        // Emergency health (once per game, cheat)
+        this.emergencyHealthUsed = false;
+        this.input.keyboard.on('keydown-H', () => {
+            if (!this.emergencyHealthUsed && this.player) {
+                this.emergencyHealthUsed = true;
+
+                // Restore 50% health
+                const healAmount = Math.floor(this.player.maxHealth * 0.5);
+                this.player.health = Math.min(
+                    this.player.health + healAmount,
+                    this.player.maxHealth
+                );
+
+                this.showToastMessage('EMERGENCY HEAL USED!');
+
+                // Visual effect
+                const healEffect = this.add.circle(
+                    this.player.sprite.x,
+                    this.player.sprite.y,
+                    60, 0x00ff00, 0.2
+                );
+
+                this.tweens.add({
+                    targets: healEffect,
+                    scale: 2,
+                    alpha: 0,
+                    duration: 1000,
+                    onComplete: () => healEffect.destroy()
+                });
+            } else if (this.emergencyHealthUsed) {
+                this.showToastMessage('Emergency heal already used');
+            }
+        });
+    }
+
+    // Method to toggle pause
+    togglePause() {
+        this.paused = !this.paused;
+
+        if (this.paused) {
+            // Create pause menu
+            this.showPauseMenu();
+
+            // Stop enemies
+            if (this.enemyManager && this.enemyManager.enemies) {
+                this.enemyManager.enemies.getChildren().forEach(enemy => {
+                    enemy.setVelocity(0, 0);
+                });
+            }
+        } else {
+            // Remove pause menu
+            if (this.pauseMenu) {
+                this.pauseMenu.destroy();
+                this.pauseMenu = null;
+            }
+        }
+    }
+
+    // Method to show pause menu
+    showPauseMenu() {
+        // Create container for pause menu elements
+        this.pauseMenu = this.add.container(0, 0);
+
+        // Add overlay
+        const overlay = this.add.rectangle(
+            0, 0,
+            this.game.config.width,
+            this.game.config.height,
+            0x000000, 0.7
+        );
+        overlay.setOrigin(0, 0);
+        this.pauseMenu.add(overlay);
+
+        // Add pause text
+        const pauseText = this.add.text(
+            this.game.config.width / 2,
+            this.game.config.height / 3,
+            'GAME PAUSED',
+            {
+                fontFamily: 'Arial',
+                fontSize: 48,
+                color: '#ffffff',
+                stroke: '#000000',
+                strokeThickness: 6
+            }
+        );
+        pauseText.setOrigin(0.5);
+        this.pauseMenu.add(pauseText);
+
+        // Add instructions
+        const instructions = this.add.text(
+            this.game.config.width / 2,
+            this.game.config.height / 2,
+            'Press P to resume\nPress M to toggle mute\nPress ESC to quit',
+            {
+                fontFamily: 'Arial',
+                fontSize: 24,
+                color: '#ffffff',
+                stroke: '#000000',
+                strokeThickness: 4,
+                align: 'center'
+            }
+        );
+        instructions.setOrigin(0.5);
+        this.pauseMenu.add(instructions);
+
+        // Add current stats
+        const stats = this.add.text(
+            this.game.config.width / 2,
+            this.game.config.height * 0.65,
+            `Level: ${this.playerLevel}   Score: ${this.score}\nTime: ${this.formatTime(this.gameTime)}`,
+            {
+                fontFamily: 'Arial',
+                fontSize: 20,
+                color: '#aaaaff',
+                stroke: '#000000',
+                strokeThickness: 3,
+                align: 'center'
+            }
+        );
+        stats.setOrigin(0.5);
+        this.pauseMenu.add(stats);
+
+        // Add resume button
+        const resumeButton = this.add.rectangle(
+            this.game.config.width / 2,
+            this.game.config.height * 0.8,
+            200, 50,
+            0x225588
+        );
+        resumeButton.setInteractive({ useHandCursor: true });
+
+        const resumeText = this.add.text(
+            this.game.config.width / 2,
+            this.game.config.height * 0.8,
+            'RESUME',
+            {
+                fontFamily: 'Arial',
+                fontSize: 24,
+                color: '#ffffff',
+                stroke: '#000000',
+                strokeThickness: 2
+            }
+        );
+        resumeText.setOrigin(0.5);
+
+        resumeButton.on('pointerdown', () => {
+            this.togglePause();
+        });
+
+        this.pauseMenu.add(resumeButton);
+        this.pauseMenu.add(resumeText);
+
+        // Set depth to ensure visibility
+        this.pauseMenu.setDepth(1000);
+
+        // Add ESC key to quit
+        const escKey = this.input.keyboard.addKey('ESC');
+        escKey.on('down', () => {
+            if (this.paused) {
+                this.scene.start('MenuScene');
+            }
+        });
+    }
+
+    // Helper method to format time
+    formatTime(seconds) {
+        const minutes = Math.floor(seconds / 60);
+        const secs = seconds % 60;
+        return `${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    }
+
+    // Toast message system
+    showToastMessage(message, duration = 2000) {
+        const toast = this.add.text(
+            this.game.config.width / 2,
+            100,
+            message,
+            {
+                fontFamily: 'Arial',
+                fontSize: 24,
+                color: '#ffffff',
+                stroke: '#000000',
+                strokeThickness: 4,
+                align: 'center'
+            }
+        );
+        toast.setOrigin(0.5);
+        toast.setScrollFactor(0);
+        toast.setDepth(1000);
+
+        // Fade in and out
+        toast.alpha = 0;
+
+        this.tweens.add({
+            targets: toast,
+            alpha: 1,
+            y: 80,
+            duration: 300,
+            ease: 'Sine.easeOut',
+            onComplete: () => {
+                this.time.delayedCall(duration - 600, () => {
+                    this.tweens.add({
+                        targets: toast,
+                        alpha: 0,
+                        y: 60,
+                        duration: 300,
+                        ease: 'Sine.easeIn',
+                        onComplete: () => toast.destroy()
+                    });
+                });
+            }
+        });
+
+        return toast;
+    }
+
     setupCollisions() {
         if (!this.player || !this.enemyManager) return;
 
@@ -259,14 +645,13 @@ class MainScene extends Phaser.Scene {
         const enemy = enemySprite.getData('ref');
         if (!enemy) return; // Safety check
 
-        this.player.takeDamage(enemy.damage);
+        const enemyId = enemySprite.getData('enemyId');
+        const damageAmount = GAME_SETTINGS.enemyDamage[enemy.type] || 10;
 
-        // Sound effect 
-        if (this.sound && this.cache.audio.exists('playerHurt')) {
-            this.sound.play('playerHurt', { volume: 0.4 });
-        }
+        // Try to damage player - will return false if on cooldown
+        const damageTaken = this.player.takeDamage(damageAmount, enemyId);
 
-        if (this.player.health <= 0) {
+        if (damageTaken && this.player.health <= 0) {
             this.gameOver();
         }
     }

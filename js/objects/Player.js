@@ -8,6 +8,10 @@ class Player {
         this.sprite.setCollideWorldBounds(true);
         this.sprite.setData('ref', this);
 
+        this.damageCooldowns = new Map(); // Track cooldown per enemy
+        this.invulnerableUntil = 0; // Global invulnerability
+        this.damageFlashing = false; // Track if player is flashing
+
         // Make player more visible and ensure proper scaling
         this.sprite.setScale(1.2);
         this.sprite.setTint(0x4488ff);
@@ -129,51 +133,87 @@ class Player {
         // We'll set up collisions later in MainScene.setupCollisions()
     }
 
-    takeDamage(amount) {
+    takeDamage(amount, enemyId = null) {
+        const currentTime = this.scene.time.now;
+
+        // Skip damage if player is invulnerable or the enemy is on cooldown
+        if (currentTime < this.invulnerableUntil) return false;
+        if (enemyId && this.damageCooldowns.has(enemyId)) {
+            if (currentTime < this.damageCooldowns.get(enemyId)) return false;
+        }
+
+        // Apply damage and set cooldowns
         this.health -= amount;
         this.health = Math.max(0, this.health);
 
-        // Visual feedback
-        this.scene.tweens.add({
-            targets: this.sprite,
-            alpha: 0.5,
-            duration: 100,
-            yoyo: true
-        });
+        // Set invulnerability for 500ms (global protection)
+        this.invulnerableUntil = currentTime + 500;
 
-        // Screen shake
-        this.scene.cameras.main.shake(100, 0.01);
+        // Set individual enemy cooldown for 1 second
+        if (enemyId) {
+            this.damageCooldowns.set(enemyId, currentTime + 1000);
+        }
 
-        // Flash red
-        this.sprite.setTint(0xff0000);
-        this.scene.time.delayedCall(100, () => {
-            this.sprite.setTint(0x4488ff);
-        });
+        // Clean up old cooldowns every 5 seconds to prevent memory leaks
+        if (Math.random() < 0.1) this.cleanupCooldowns();
 
-        // Damage number
-        const damageText = this.scene.add.text(
-            this.sprite.x,
-            this.sprite.y - 20,
-            `-${amount}`,
-            {
-                fontSize: '16px',
-                color: '#ff0000',
-                stroke: '#000000',
-                strokeThickness: 3
-            }
-        );
-        damageText.setOrigin(0.5);
+        // Visual feedback - only if not already flashing
+        if (!this.damageFlashing) {
+            this.damageFlashing = true;
 
-        this.scene.tweens.add({
-            targets: damageText,
-            y: damageText.y - 30,
-            alpha: 0,
-            duration: 800,
-            onComplete: () => damageText.destroy()
-        });
+            this.scene.tweens.add({
+                targets: this.sprite,
+                alpha: 0.5,
+                duration: 100,
+                yoyo: true,
+                repeat: 2,
+                onComplete: () => {
+                    this.sprite.alpha = 1;
+                    this.damageFlashing = false;
+                }
+            });
+
+            // Screen shake
+            this.scene.cameras.main.shake(100, 0.01);
+
+            // Flash red
+            this.sprite.setTint(0xff0000);
+            this.scene.time.delayedCall(300, () => {
+                this.sprite.setTint(0x4488ff);
+            });
+
+            // Show damage number
+            const damageText = this.scene.add.text(
+                this.sprite.x, this.sprite.y - 20,
+                `-${amount}`,
+                { fontSize: '16px', color: '#ff0000', stroke: '#000000', strokeThickness: 3 }
+            );
+            damageText.setOrigin(0.5);
+
+            this.scene.tweens.add({
+                targets: damageText,
+                y: damageText.y - 30,
+                alpha: 0,
+                duration: 800,
+                onComplete: () => damageText.destroy()
+            });
+
+            // Play hurt sound
+            playSound(this.scene, 'playerHurt', { volume: 0.4 });
+        }
+
+        return true; // Damage was applied
     }
 
-
+    // Add this cleanup method
+    cleanupCooldowns() {
+        const currentTime = this.scene.time.now;
+        for (const [enemyId, cooldownTime] of this.damageCooldowns.entries()) {
+            if (cooldownTime < currentTime) {
+                this.damageCooldowns.delete(enemyId);
+            }
+        }
+    }
 
     heal(amount) {
         this.health += amount;
